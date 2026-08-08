@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Exec(rm)",
+      "Exec(python)",
+      "Exec(..\\.venv\\Scripts\\Activate.ps1)",
+      "Exec(mkdir)"
+    ]
+  }
+}

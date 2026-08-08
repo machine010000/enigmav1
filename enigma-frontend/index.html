@@ -1,0 +1,1360 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ENIGMA - AI Business Brain</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: { cairo: ['Cairo', 'sans-serif'] },
+                    colors: {
+                        dark: { 900: '#050507', 800: '#0a0e1a', 700: '#111827', 600: '#1f2937' },
+                        brand: { purple: '#8b5cf6', blue: '#3b82f6', cyan: '#06b6d4', pink: '#ec4899' }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        * { font-family: 'Cairo', sans-serif; }
+        body { background: #050507; color: #e5e7eb; overflow-x: hidden; }
+        .glass { background: rgba(17, 24, 39, 0.7); backdrop-filter: blur(20px); border: 1px solid rgba(255,255,255,0.08); }
+        .glass-card { background: rgba(17, 24, 39, 0.6); backdrop-filter: blur(16px); border: 1px solid rgba(255,255,255,0.06); border-radius: 16px; }
+        .gradient-text { background: linear-gradient(135deg, #8b5cf6, #3b82f6, #06b6d4); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+        .btn-primary { background: linear-gradient(135deg, #8b5cf6, #6366f1); border: none; color: white; padding: 10px 24px; border-radius: 10px; font-weight: 600; cursor: pointer; transition: all 0.3s; }
+        .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 10px 30px rgba(139, 92, 246, 0.4); }
+        .btn-secondary { background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); color: white; padding: 10px 24px; border-radius: 10px; font-weight: 600; cursor: pointer; transition: all 0.3s; }
+        .btn-secondary:hover { background: rgba(255,255,255,0.2); }
+        .page { display: none; animation: fadeIn 0.4s ease; }
+        .page.active { display: block; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .sidebar-item { transition: all 0.3s ease; cursor: pointer; }
+        .sidebar-item:hover, .sidebar-item.active { background: rgba(139, 92, 246, 0.15); border-right: 3px solid #8b5cf6; color: #8b5cf6; }
+        .tag { padding: 4px 12px; border-radius: 20px; font-size: 0.75rem; font-weight: 600; }
+        .tag-green { background: rgba(16, 185, 129, 0.15); color: #34d399; }
+        .tag-purple { background: rgba(139, 92, 246, 0.15); color: #a78bfa; }
+        .tag-blue { background: rgba(59, 130, 246, 0.15); color: #60a5fa; }
+        .tag-yellow { background: rgba(245, 158, 11, 0.15); color: #fbbf24; }
+        .tag-red { background: rgba(239, 68, 68, 0.15); color: #f87171; }
+        .input-field { background: rgba(17, 24, 39, 0.8); border: 1px solid rgba(255,255,255,0.1); border-radius: 10px; padding: 12px 16px; color: white; width: 100%; outline: none; transition: border-color 0.3s; }
+        .input-field:focus { border-color: #8b5cf6; }
+        .floating-orb { position: fixed; border-radius: 50%; filter: blur(80px); opacity: 0.12; pointer-events: none; z-index: 0; }
+        .chat-message { padding: 12px 16px; border-radius: 12px; margin-bottom: 8px; max-width: 80%; }
+        .chat-user { background: rgba(139, 92, 246, 0.2); border: 1px solid rgba(139, 92, 246, 0.3); margin-left: auto; }
+        .chat-ai { background: rgba(59, 130, 246, 0.2); border: 1px solid rgba(59, 130, 246, 0.3); margin-right: auto; }
+        .progress-bar { background: linear-gradient(90deg, #10b981, #34d399); height: 6px; border-radius: 3px; transition: width 1s ease; }
+        .metric-card { background: rgba(17, 24, 39, 0.5); border: 1px solid rgba(255,255,255,0.05); border-radius: 12px; padding: 16px; transition: transform 0.2s; }
+        .metric-card:hover { transform: translateY(-2px); }
+        .goal-card { background: rgba(17, 24, 39, 0.6); border: 1px solid rgba(255,255,255,0.08); border-radius: 16px; padding: 24px; cursor: pointer; transition: all 0.3s; position: relative; overflow: hidden; }
+        .goal-card:hover { border-color: rgba(139, 92, 246, 0.5); transform: translateY(-4px); box-shadow: 0 20px 40px rgba(0,0,0,0.3); }
+        .task-item { border-right: 3px solid transparent; transition: all 0.2s; }
+        .task-item:hover { background: rgba(139, 92, 246, 0.08); border-right-color: #8b5cf6; }
+        .confidence-ring { width: 120px; height: 120px; border-radius: 50%; background: conic-gradient(#10b981 0deg, #10b981 331deg, rgba(255,255,255,0.1) 331deg); display: flex; align-items: center; justify-content: center; position: relative; }
+        .confidence-ring::before { content: ''; position: absolute; width: 90px; height: 90px; border-radius: 50%; background: #111827; }
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: #0a0e1a; }
+        ::-webkit-scrollbar-thumb { background: #374151; border-radius: 3px; }
+    </style>
+<base target="_blank">
+</head>
+<body class="min-h-screen">
+    <div class="floating-orb w-96 h-96 bg-brand-purple top-0 right-0"></div>
+    <div class="floating-orb w-80 h-80 bg-brand-blue bottom-0 left-0"></div>
+
+    <!-- Toast -->
+    <div id="toast" class="fixed top-4 left-1/2 transform -translate-x-1/2 z-50 hidden">
+        <div class="glass-card px-6 py-3 flex items-center gap-3">
+            <i id="toast-icon" class="fas fa-info-circle text-brand-purple"></i>
+            <span id="toast-message" class="text-sm"></span>
+        </div>
+    </div>
+
+    <!-- Loading -->
+    <div id="loading" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 hidden flex items-center justify-center">
+        <div class="glass-card p-8 text-center">
+            <div class="w-12 h-12 border-4 border-brand-purple border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+            <p class="text-brand-purple font-semibold">جاري التحميل...</p>
+        </div>
+    </div>
+
+    <!-- Auth Pages (No Sidebar) -->
+    <div id="auth-pages">
+        <!-- Login Page -->
+        <div id="page-login" class="page active min-h-screen flex items-center justify-center p-4">
+            <div class="glass-card p-8 w-full max-w-md">
+                <div class="text-center mb-8">
+                    <div class="w-16 h-16 rounded-2xl bg-gradient-to-br from-brand-purple to-brand-blue flex items-center justify-center mx-auto mb-4">
+                        <i class="fas fa-brain text-white text-2xl"></i>
+                    </div>
+                    <h1 class="text-2xl font-bold">ENIGMA</h1>
+                    <p class="text-gray-400 text-sm">Your AI Business Brain</p>
+                </div>
+                <form id="login-form" class="space-y-4">
+                    <div>
+                        <label class="block text-sm text-gray-400 mb-2">البريد الإلكتروني</label>
+                        <input type="email" id="login-email" class="input-field" placeholder="email@example.com" required>
+                    </div>
+                    <div>
+                        <label class="block text-sm text-gray-400 mb-2">كلمة المرور</label>
+                        <input type="password" id="login-password" class="input-field" placeholder="••••••••" required>
+                    </div>
+                    <button type="submit" class="btn-primary w-full">تسجيل الدخول</button>
+                </form>
+                <p class="text-center text-sm text-gray-400 mt-4">
+                    ليس لديك حساب؟ <a href="#" onclick="showPage('register')" class="text-brand-purple">سجل الآن</a>
+                </p>
+                <button onclick="skipAuth()" class="w-full mt-4 py-2 text-sm text-gray-500 hover:text-gray-300 transition">
+                    تخطي (وضع التجربة)
+                </button>
+            </div>
+        </div>
+
+        <!-- Register Page -->
+        <div id="page-register" class="page min-h-screen flex items-center justify-center p-4">
+            <div class="glass-card p-8 w-full max-w-md">
+                <div class="text-center mb-8">
+                    <div class="w-16 h-16 rounded-2xl bg-gradient-to-br from-brand-purple to-brand-blue flex items-center justify-center mx-auto mb-4">
+                        <i class="fas fa-brain text-white text-2xl"></i>
+                    </div>
+                    <h1 class="text-2xl font-bold">إنشاء حساب</h1>
+                </div>
+                <form id="register-form" class="space-y-4">
+                    <div>
+                        <label class="block text-sm text-gray-400 mb-2">الاسم</label>
+                        <input type="text" id="reg-name" class="input-field" placeholder="أحمد محمد" required>
+                    </div>
+                    <div>
+                        <label class="block text-sm text-gray-400 mb-2">البريد الإلكتروني</label>
+                        <input type="email" id="reg-email" class="input-field" placeholder="email@example.com" required>
+                    </div>
+                    <div>
+                        <label class="block text-sm text-gray-400 mb-2">كلمة المرور</label>
+                        <input type="password" id="reg-password" class="input-field" placeholder="••••••••" required>
+                    </div>
+                    <button type="submit" class="btn-primary w-full">إنشاء حساب</button>
+                </form>
+                <p class="text-center text-sm text-gray-400 mt-4">
+                    لديك حساب؟ <a href="#" onclick="showPage('login')" class="text-brand-purple">سجل دخول</a>
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main App (With Sidebar) -->
+    <div id="main-app" class="hidden">
+        <!-- Sidebar -->
+        <aside class="fixed right-0 top-0 h-full w-64 glass z-50 hidden lg:flex flex-col">
+            <div class="p-6 flex items-center gap-3">
+                <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-brand-purple to-brand-blue flex items-center justify-center">
+                    <i class="fas fa-brain text-white text-lg"></i>
+                </div>
+                <div>
+                    <h1 class="font-bold text-lg tracking-wide">ENIGMA</h1>
+                    <p class="text-xs text-gray-400">Your AI Business Brain</p>
+                </div>
+            </div>
+            <nav class="flex-1 px-4 space-y-1 mt-4">
+                <a onclick="showPage('home')" class="sidebar-item active flex items-center gap-3 px-4 py-3 rounded-xl text-sm">
+                    <i class="fas fa-home w-5"></i><span>الصفحة الرئيسية</span>
+                </a>
+                <a onclick="showPage('workspace')" class="sidebar-item flex items-center gap-3 px-4 py-3 rounded-xl text-sm">
+                    <i class="fas fa-th-large w-5"></i><span>مساحة العمل</span>
+                </a>
+                <a onclick="showPage('brain')" class="sidebar-item flex items-center gap-3 px-4 py-3 rounded-xl text-sm">
+                    <i class="fas fa-brain w-5"></i><span>العقل الكبير</span>
+                </a>
+                <a onclick="showPage('user-brain')" class="sidebar-item flex items-center gap-3 px-4 py-3 rounded-xl text-sm">
+                    <i class="fas fa-user-cog w-5"></i><span>عقل المستخدم</span>
+                </a>
+                <a onclick="showPage('products')" class="sidebar-item flex items-center gap-3 px-4 py-3 rounded-xl text-sm">
+                    <i class="fas fa-tshirt w-5"></i><span>المنتجات</span>
+                </a>
+                <a onclick="showPage('research')" class="sidebar-item flex items-center gap-3 px-4 py-3 rounded-xl text-sm">
+                    <i class="fas fa-search w-5"></i><span>مرحلة البحث</span>
+                </a>
+                <a onclick="showPage('decisions')" class="sidebar-item flex items-center gap-3 px-4 py-3 rounded-xl text-sm">
+                    <i class="fas fa-lightbulb w-5"></i><span>مرحلة القرارات</span>
+                </a>
+                <a onclick="showPage('strategy')" class="sidebar-item flex items-center gap-3 px-4 py-3 rounded-xl text-sm">
+                    <i class="fas fa-chess w-5"></i><span>مرحلة الاستراتيجية</span>
+                </a>
+                <a onclick="showPage('execution')" class="sidebar-item flex items-center gap-3 px-4 py-3 rounded-xl text-sm">
+                    <i class="fas fa-tasks w-5"></i><span>مرحلة التنفيذ</span>
+                </a>
+                <a onclick="showPage('analytics')" class="sidebar-item flex items-center gap-3 px-4 py-3 rounded-xl text-sm">
+                    <i class="fas fa-chart-line w-5"></i><span>التحليل والنتائج</span>
+                </a>
+                <a onclick="showPage('learning')" class="sidebar-item flex items-center gap-3 px-4 py-3 rounded-xl text-sm">
+                    <i class="fas fa-graduation-cap w-5"></i><span>التعلم والتطور</span>
+                </a>
+                <div class="border-t border-gray-700 my-2"></div>
+                <a onclick="showPage('dashboard')" class="sidebar-item flex items-center gap-3 px-4 py-3 rounded-xl text-sm">
+                    <i class="fas fa-tachometer-alt w-5"></i><span>لوحة التحكم</span>
+                </a>
+                <a onclick="showPage('live-console')" class="sidebar-item flex items-center gap-3 px-4 py-3 rounded-xl text-sm">
+                    <i class="fas fa-wifi w-5"></i><span>الكونسول المباشر</span>
+                </a>
+            </nav>
+            <div class="p-4">
+                <div class="glass-card p-4">
+                    <div class="flex items-center gap-3 mb-3">
+                        <div class="w-8 h-8 rounded-full bg-gradient-to-br from-brand-purple to-brand-pink"></div>
+                        <div>
+                            <p id="user-name" class="text-sm font-semibold">User</p>
+                            <p class="text-xs text-gray-400">خطة Pro</p>
+                        </div>
+                    </div>
+                    <button onclick="logout()" class="w-full py-2 rounded-lg bg-dark-600 text-xs hover:bg-dark-500 transition">تسجيل الخروج</button>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Mobile Header -->
+        <header class="lg:hidden fixed top-0 left-0 right-0 h-16 glass z-50 flex items-center justify-between px-4">
+            <div class="flex items-center gap-2">
+                <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-brand-purple to-brand-blue flex items-center justify-center">
+                    <i class="fas fa-brain text-white text-sm"></i>
+                </div>
+                <span class="font-bold">ENIGMA</span>
+            </div>
+            <button onclick="document.querySelector('aside').classList.toggle('hidden');document.querySelector('aside').classList.toggle('flex')" class="text-gray-300">
+                <i class="fas fa-bars text-xl"></i>
+            </button>
+        </header>
+
+        <!-- Main Content -->
+        <main class="lg:mr-64 min-h-screen p-4 lg:p-8 pt-20 lg:pt-8 relative z-10">
+
+            <!-- Page: Home -->
+            <div id="page-home" class="page active">
+                <div class="max-w-5xl mx-auto">
+                    <div class="text-center mb-12">
+                        <div class="inline-flex items-center gap-2 px-4 py-2 rounded-full glass-card mb-6">
+                            <span class="w-2 h-2 rounded-full bg-brand-purple animate-pulse"></span>
+                            <span class="text-sm text-gray-300">Enigma جاهز لمساعدتك</span>
+                        </div>
+                        <h2 class="text-4xl lg:text-5xl font-bold mb-4">ماذا تريد أن <span class="gradient-text">تحقق</span> اليوم؟</h2>
+                        <p class="text-gray-400 text-lg">اختر هدفك الأساسي وسيقوم Enigma ببناء المسار لك</p>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-12">
+                        <div class="goal-card" onclick="selectGoal('first_sale')">
+                            <div class="w-14 h-14 rounded-2xl bg-gradient-to-br from-brand-purple to-brand-pink flex items-center justify-center mb-4"><i class="fas fa-rocket text-2xl text-white"></i></div>
+                            <h3 class="text-xl font-bold mb-2">First Organic Sale</h3>
+                            <p class="text-gray-400 text-sm mb-4">احصل على أول عملية بيع دون إعلانات</p>
+                            <div class="flex items-center gap-2 text-brand-purple text-sm"><i class="fas fa-arrow-left"></i><span>ابدأ الآن</span></div>
+                        </div>
+                        <div class="goal-card" onclick="selectGoal('increase_sales')">
+                            <div class="w-14 h-14 rounded-2xl bg-gradient-to-br from-brand-blue to-brand-cyan flex items-center justify-center mb-4"><i class="fas fa-chart-line text-2xl text-white"></i></div>
+                            <h3 class="text-xl font-bold mb-2">Increase Sales</h3>
+                            <p class="text-gray-400 text-sm mb-4">نمو الإيرادات بشكل مستدام</p>
+                            <div class="flex items-center gap-2 text-brand-blue text-sm"><i class="fas fa-arrow-left"></i><span>ابدأ الآن</span></div>
+                        </div>
+                        <div class="goal-card" onclick="selectGoal('launch_product')">
+                            <div class="w-14 h-14 rounded-2xl bg-gradient-to-br from-orange-500 to-red-500 flex items-center justify-center mb-4"><i class="fas fa-box-open text-2xl text-white"></i></div>
+                            <h3 class="text-xl font-bold mb-2">Launch Product</h3>
+                            <p class="text-gray-400 text-sm mb-4">إطلاق منتج جديد بنجاح</p>
+                            <div class="flex items-center gap-2 text-orange-400 text-sm"><i class="fas fa-arrow-left"></i><span>ابدأ الآن</span></div>
+                        </div>
+                        <div class="goal-card" onclick="selectGoal('build_brand')">
+                            <div class="w-14 h-14 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-500 flex items-center justify-center mb-4"><i class="fas fa-bullhorn text-2xl text-white"></i></div>
+                            <h3 class="text-xl font-bold mb-2">Build Brand</h3>
+                            <p class="text-gray-400 text-sm mb-4">بناء علامة تجارية قوية</p>
+                            <div class="flex items-center gap-2 text-emerald-400 text-sm"><i class="fas fa-arrow-left"></i><span>ابدأ الآن</span></div>
+                        </div>
+                        <div class="goal-card" onclick="selectGoal('content_creation')">
+                            <div class="w-14 h-14 rounded-2xl bg-gradient-to-br from-pink-500 to-rose-500 flex items-center justify-center mb-4"><i class="fas fa-video text-2xl text-white"></i></div>
+                            <h3 class="text-xl font-bold mb-2">Content Creation</h3>
+                            <p class="text-gray-400 text-sm mb-4">إنشاء محتوى يجذب العملاء</p>
+                            <div class="flex items-center gap-2 text-pink-400 text-sm"><i class="fas fa-arrow-left"></i><span>ابدأ الآن</span></div>
+                        </div>
+                        <div class="goal-card" onclick="selectGoal('custom')">
+                            <div class="w-14 h-14 rounded-2xl bg-gradient-to-br from-gray-600 to-gray-800 flex items-center justify-center mb-4"><i class="fas fa-crown text-2xl text-white"></i></div>
+                            <h3 class="text-xl font-bold mb-2">Custom Goal</h3>
+                            <p class="text-gray-400 text-sm mb-4">حدد هدفك الخاص</p>
+                            <div class="flex items-center gap-2 text-gray-400 text-sm"><i class="fas fa-arrow-left"></i><span>ابدأ الآن</span></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Page: Workspace -->
+            <div id="page-workspace" class="page">
+                <div class="max-w-7xl mx-auto">
+                    <div class="flex flex-wrap items-center justify-between mb-8 gap-4">
+                        <div><h2 class="text-2xl font-bold">مساحة العمل</h2><p class="text-gray-400 text-sm">نظرة عامة على نشاطك</p></div>
+                        <div class="flex items-center gap-3 flex-wrap">
+                            <span class="text-sm text-gray-400">Current Goal:</span>
+                            <span id="current-goal-tag" class="tag tag-purple">Get First Organic Sale</span>
+                            <button class="btn-primary text-sm" onclick="showPage('brain')"><i class="fas fa-play ml-2"></i>Resume Brain</button>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                        <div class="glass-card p-6">
+                            <div class="flex items-center justify-between mb-6">
+                                <h3 class="font-bold text-lg">My Products</h3>
+                                <button class="btn-primary text-xs py-2 px-4" onclick="showPage('products')"><i class="fas fa-plus ml-1"></i>Add Product</button>
+                            </div>
+                            <div id="products-list" class="space-y-4">
+                                <div class="p-4 rounded-xl bg-dark-800 border border-brand-purple/30 cursor-pointer" onclick="showPage('products')">
+                                    <div class="flex items-center justify-between mb-2">
+                                        <span class="font-semibold">Black Oversized T-Shirt</span>
+                                        <span class="tag tag-green text-xs">Active</span>
+                                    </div>
+                                    <div class="w-full bg-dark-600 rounded-full h-1.5"><div class="progress-bar w-[85%]"></div></div>
+                                    <p class="text-xs text-gray-500 mt-2">Needs Execution</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="glass-card p-6 flex flex-col items-center justify-center text-center">
+                            <h3 class="font-bold text-lg mb-2">Brain Activity</h3>
+                            <p class="text-gray-400 text-sm mb-4">Enigma is thinking...</p>
+                            <div class="relative w-32 h-32 mb-4">
+                                <div class="absolute inset-0 rounded-full bg-gradient-to-br from-brand-purple/30 to-brand-blue/30 blur-xl animate-pulse"></div>
+                                <div class="w-full h-full rounded-full border-2 border-brand-purple/50 flex items-center justify-center relative">
+                                    <i class="fas fa-brain text-brand-purple text-4xl animate-pulse"></i>
+                                </div>
+                            </div>
+                            <div class="space-y-2 w-full text-right text-sm text-gray-300">
+                                <div class="flex items-center gap-2"><i class="fas fa-check text-green-500"></i><span>Found 6 competitors</span></div>
+                                <div class="flex items-center gap-2"><i class="fas fa-check text-green-500"></i><span>Found 132 questions</span></div>
+                                <div class="flex items-center gap-2"><i class="fas fa-spinner text-brand-purple animate-spin"></i><span>Analyzing...</span></div>
+                            </div>
+                        </div>
+                        <div class="glass-card p-6">
+                            <div class="flex items-center justify-between mb-6">
+                                <h3 class="font-bold text-lg">Today's Mission</h3>
+                                <span class="text-sm text-brand-purple">View All</span>
+                            </div>
+                            <div class="space-y-3">
+                                <div class="flex items-center justify-between p-3 rounded-xl bg-dark-800">
+                                    <div class="flex items-center gap-3">
+                                        <div class="w-8 h-8 rounded-full bg-brand-purple/20 flex items-center justify-center"><i class="fas fa-video text-brand-purple text-sm"></i></div>
+                                        <span class="text-sm">Record comparison video</span>
+                                    </div>
+                                    <button class="btn-primary text-xs py-1 px-3">Start</button>
+                                </div>
+                                <div class="flex items-center justify-between p-3 rounded-xl bg-dark-800">
+                                    <div class="flex items-center gap-3">
+                                        <div class="w-8 h-8 rounded-full bg-brand-blue/20 flex items-center justify-center"><i class="fab fa-tiktok text-brand-blue text-sm"></i></div>
+                                        <span class="text-sm">Publish at 7:30 PM</span>
+                                    </div>
+                                    <button class="btn-primary text-xs py-1 px-3">Start</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Page: Master Brain Chat -->
+            <div id="page-brain" class="page">
+                <div class="max-w-4xl mx-auto h-[calc(100vh-120px)]">
+                    <div class="glass-card h-full flex flex-col">
+                        <div class="p-4 border-b border-gray-700 flex items-center justify-between">
+                            <div class="flex items-center gap-3">
+                                <div class="w-10 h-10 rounded-full bg-gradient-to-br from-brand-purple to-brand-blue flex items-center justify-center">
+                                    <i class="fas fa-brain text-white"></i>
+                                </div>
+                                <div>
+                                    <h3 class="font-bold">Master Brain</h3>
+                                    <p class="text-xs text-green-400">● Online</p>
+                                </div>
+                            </div>
+                            <button onclick="showPage('knowledge')" class="btn-secondary text-xs"><i class="fas fa-book ml-2"></i>Knowledge Base</button>
+                        </div>
+                        <div id="chat-messages" class="flex-1 overflow-y-auto p-4 space-y-4">
+                            <div class="chat-message chat-ai">
+                                <p class="text-sm">أهلاً! أنا ENIGMA Master Brain. يمكنك:</p>
+                                <ul class="text-sm mt-2 space-y-1 text-gray-300">
+                                    <li>• تعلمني شيئاً عن السوق (مثال: "سوق مصر بيحب الملابس الواسعة")</li>
+                                    <li>• تسألني عن استراتيجية تسويق</li>
+                                    <li>• تطلب مني تحليل منتج</li>
+                                    <li>• تعلمني قوانين جديدة</li>
+                                </ul>
+                            </div>
+                        </div>
+                        <div class="p-4 border-t border-gray-700">
+                            <form id="chat-form" class="flex gap-2">
+                                <input type="text" id="chat-input" class="input-field flex-1" placeholder="اكتب رسالتك هنا..." required>
+                                <button type="submit" class="btn-primary px-6"><i class="fas fa-paper-plane"></i></button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Page: User Brain -->
+            <div id="page-user-brain" class="page">
+                <div class="max-w-5xl mx-auto">
+                    <div class="flex items-center justify-between mb-8">
+                        <div>
+                            <h2 class="text-2xl font-bold">عقل المستخدم</h2>
+                            <p class="text-gray-400 text-sm">User Brain - Orchestrator</p>
+                        </div>
+                        <span id="user-type-badge" class="tag tag-yellow">جاري التعرف...</span>
+                    </div>
+
+                    <!-- User Type Detection -->
+                    <div class="glass-card p-6 mb-6">
+                        <h3 class="font-bold text-lg mb-4"><i class="fas fa-user-tag text-brand-purple ml-2"></i>نوع المستخدم</h3>
+                        <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                            <button onclick="setUserType('seller')" class="p-4 rounded-xl bg-dark-800 border border-gray-700 hover:border-brand-purple transition text-center">
+                                <i class="fas fa-store text-brand-purple text-2xl mb-2"></i>
+                                <p class="font-semibold text-sm">Seller</p>
+                                <p class="text-xs text-gray-400">بائع منتجات</p>
+                            </button>
+                            <button onclick="setUserType('service_provider')" class="p-4 rounded-xl bg-dark-800 border border-gray-700 hover:border-brand-purple transition text-center">
+                                <i class="fas fa-hands-helping text-brand-blue text-2xl mb-2"></i>
+                                <p class="font-semibold text-sm">Service Provider</p>
+                                <p class="text-xs text-gray-400">مقدم خدمات</p>
+                            </button>
+                            <button onclick="setUserType('content_creator')" class="p-4 rounded-xl bg-dark-800 border border-gray-700 hover:border-brand-purple transition text-center">
+                                <i class="fas fa-video text-pink-500 text-2xl mb-2"></i>
+                                <p class="font-semibold text-sm">Content Creator</p>
+                                <p class="text-xs text-gray-400">صانع محتوى</p>
+                            </button>
+                            <button onclick="setUserType('investor')" class="p-4 rounded-xl bg-dark-800 border border-gray-700 hover:border-brand-purple transition text-center">
+                                <i class="fas fa-chart-pie text-emerald-500 text-2xl mb-2"></i>
+                                <p class="font-semibold text-sm">Investor</p>
+                                <p class="text-xs text-gray-400">مستثمر</p>
+                            </button>
+                        </div>
+                        <div id="user-type-result" class="mt-4 hidden">
+                            <div class="p-4 rounded-xl bg-brand-purple/10 border border-brand-purple/30">
+                                <p class="font-semibold text-brand-purple mb-1">تم التعرف!</p>
+                                <p id="user-type-text" class="text-sm text-gray-300"></p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Journeys -->
+                    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                        <div class="glass-card p-6">
+                            <h3 class="font-bold mb-4"><i class="fas fa-route text-brand-purple ml-2"></i>User Journey</h3>
+                            <p class="text-sm text-gray-400 mb-4">رحلة المستخدم مع ENIGMA</p>
+                            <div id="user-journey-content" class="space-y-3">
+                                <div class="p-3 rounded-lg bg-dark-800 text-center text-gray-500 text-sm">
+                                    اختر نوع المستخدم أولاً
+                                </div>
+                            </div>
+                        </div>
+                        <div class="glass-card p-6">
+                            <h3 class="font-bold mb-4"><i class="fas fa-box text-brand-blue ml-2"></i>Product Journey</h3>
+                            <p class="text-sm text-gray-400 mb-4">رحلة المنتج من الفكرة للنجاح</p>
+                            <div id="product-journey-content" class="space-y-3">
+                                <div class="p-3 rounded-lg bg-dark-800 text-center text-gray-500 text-sm">
+                                    أنشئ منتج أولاً
+                                </div>
+                            </div>
+                        </div>
+                        <div class="glass-card p-6">
+                            <h3 class="font-bold mb-4"><i class="fas fa-industry text-emerald-500 ml-2"></i>Production Journey</h3>
+                            <p class="text-sm text-gray-400 mb-4">رحلة الإنتاج والتسليم</p>
+                            <div id="production-journey-content" class="space-y-3">
+                                <div class="p-3 rounded-lg bg-dark-800 text-center text-gray-500 text-sm">
+                                    اختر نوع المستخدم أولاً
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Page: Products -->
+            <div id="page-products" class="page">
+                <div class="max-w-5xl mx-auto">
+                    <div class="flex items-center justify-between mb-8">
+                        <h2 class="text-2xl font-bold">المنتجات</h2>
+                        <button onclick="showAddProductModal()" class="btn-primary"><i class="fas fa-plus ml-2"></i>إضافة منتج</button>
+                    </div>
+                    <div id="products-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        <!-- Products will be loaded here -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Add Product Modal -->
+            <div id="add-product-modal" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+                <div class="glass-card p-8 w-full max-w-lg max-h-[90vh] overflow-y-auto">
+                    <div class="flex items-center justify-between mb-6">
+                        <h3 class="text-xl font-bold">إضافة منتج جديد</h3>
+                        <button onclick="hideAddProductModal()" class="text-gray-400 hover:text-white"><i class="fas fa-times text-xl"></i></button>
+                    </div>
+                    <form id="add-product-form" class="space-y-4">
+                        <div>
+                            <label class="block text-sm text-gray-400 mb-2">اسم المنتج</label>
+                            <input type="text" id="product-name" class="input-field" placeholder="مثال: Black Oversized T-Shirt" required>
+                        </div>
+                        <div>
+                            <label class="block text-sm text-gray-400 mb-2">الفئة</label>
+                            <select id="product-category" class="input-field" required>
+                                <option value="">اختر الفئة</option>
+                                <option value="fashion">Fashion</option>
+                                <option value="tech">Tech</option>
+                                <option value="food">Food</option>
+                                <option value="beauty">Beauty</option>
+                                <option value="home">Home</option>
+                                <option value="other">Other</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm text-gray-400 mb-2">الفئة الفرعية</label>
+                            <input type="text" id="product-subcategory" class="input-field" placeholder="مثال: T-Shirt">
+                        </div>
+                        <div>
+                            <label class="block text-sm text-gray-400 mb-2">السوق المستهدف</label>
+                            <input type="text" id="product-market" class="input-field" placeholder="مثال: Egypt, Saudi, Global">
+                        </div>
+                        <div>
+                            <label class="block text-sm text-gray-400 mb-2">وصف المنتج</label>
+                            <textarea id="product-description" class="input-field h-24 resize-none" placeholder="صف المنتج بإيجاز..."></textarea>
+                        </div>
+                        <button type="submit" class="btn-primary w-full">إنشاء المنتج وبدء التعريف</button>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Page: Research -->
+            <div id="page-research" class="page">
+                <div class="max-w-7xl mx-auto">
+                    <div class="flex items-center justify-between mb-8">
+                        <div>
+                            <h2 class="text-2xl font-bold">مرحلة البحث</h2>
+                            <p class="text-gray-400 text-sm">جمع الأدلة والبيانات</p>
+                        </div>
+                        <span id="research-progress" class="text-2xl font-bold text-green-400">0%</span>
+                    </div>
+                    <div class="glass-card p-6 mb-6">
+                        <div class="w-full bg-dark-600 rounded-full h-3">
+                            <div id="research-bar" class="progress-bar w-0 h-3 rounded-full transition-all duration-1000"></div>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4" id="research-sources">
+                        <div class="metric-card flex items-center gap-4">
+                            <div class="w-12 h-12 rounded-xl bg-blue-500/20 flex items-center justify-center"><i class="fab fa-google text-blue-500 text-xl"></i></div>
+                            <div><p class="font-semibold">Google Search</p><p class="text-xs text-gray-400">Pending</p></div>
+                        </div>
+                        <div class="metric-card flex items-center gap-4">
+                            <div class="w-12 h-12 rounded-xl bg-orange-500/20 flex items-center justify-center"><i class="fab fa-reddit text-orange-500 text-xl"></i></div>
+                            <div><p class="font-semibold">Reddit</p><p class="text-xs text-gray-400">Pending</p></div>
+                        </div>
+                        <div class="metric-card flex items-center gap-4">
+                            <div class="w-12 h-12 rounded-xl bg-gray-800 flex items-center justify-center"><i class="fab fa-tiktok text-white text-xl"></i></div>
+                            <div><p class="font-semibold">TikTok</p><p class="text-xs text-gray-400">Pending</p></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Page: Decisions -->
+            <div id="page-decisions" class="page">
+                <div class="max-w-7xl mx-auto">
+                    <div class="flex items-center justify-between mb-8">
+                        <div><h2 class="text-2xl font-bold">مرحلة القرارات</h2><p class="text-gray-400 text-sm">قرارات مبنية على أدلة</p></div>
+                    </div>
+                    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                        <div class="lg:col-span-2 glass-card p-6">
+                            <h3 class="font-bold text-lg mb-6">Key Decisions</h3>
+                            <div id="decisions-list" class="space-y-4">
+                                <div class="p-4 rounded-xl bg-dark-800 border-r-4 border-brand-purple">
+                                    <div class="flex items-center justify-between">
+                                        <div class="flex items-center gap-4">
+                                            <div class="w-10 h-10 rounded-lg bg-brand-purple/20 flex items-center justify-center"><i class="fas fa-gem text-brand-purple"></i></div>
+                                            <div><p class="font-semibold">Focus on comfort and quality</p><p class="text-xs text-gray-400">Top reason customers choose similar products</p></div>
+                                        </div>
+                                        <span class="tag tag-green">High Confidence</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="glass-card p-6 flex flex-col items-center">
+                            <h3 class="font-bold text-lg mb-4">Decision Confidence</h3>
+                            <div class="confidence-ring mb-4"><span class="text-3xl font-bold relative z-10 text-green-400">92%</span></div>
+                            <p class="text-sm text-green-400 font-semibold">High Confidence</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Page: Strategy -->
+            <div id="page-strategy" class="page">
+                <div class="max-w-7xl mx-auto">
+                    <div class="flex items-center justify-between mb-8">
+                        <div><h2 class="text-2xl font-bold">مرحلة الاستراتيجية</h2><p class="text-gray-400 text-sm">استراتيجية كاملة</p></div>
+                    </div>
+                    <div class="glass-card p-6 mb-6">
+                        <h3 class="font-bold text-lg mb-6">Strategy Overview</h3>
+                        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                            <div class="metric-card text-center">
+                                <div class="w-16 h-16 rounded-2xl bg-gradient-to-br from-brand-purple to-brand-blue flex items-center justify-center mx-auto mb-3"><i class="fas fa-bullseye text-white text-2xl"></i></div>
+                                <h4 class="font-bold mb-1">Positioning</h4>
+                            </div>
+                            <div class="metric-card text-center">
+                                <div class="w-16 h-16 rounded-2xl bg-gradient-to-br from-brand-blue to-brand-cyan flex items-center justify-center mx-auto mb-3"><i class="fas fa-comment-dots text-white text-2xl"></i></div>
+                                <h4 class="font-bold mb-1">Messaging</h4>
+                            </div>
+                            <div class="metric-card text-center">
+                                <div class="w-16 h-16 rounded-2xl bg-gradient-to-br from-brand-cyan to-emerald-500 flex items-center justify-center mx-auto mb-3"><i class="fas fa-pen-fancy text-white text-2xl"></i></div>
+                                <h4 class="font-bold mb-1">Content Strategy</h4>
+                            </div>
+                            <div class="metric-card text-center">
+                                <div class="w-16 h-16 rounded-2xl bg-gradient-to-br from-emerald-500 to-green-600 flex items-center justify-center mx-auto mb-3"><i class="fas fa-chart-line text-white text-2xl"></i></div>
+                                <h4 class="font-bold mb-1">Growth Strategy</h4>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Page: Execution -->
+            <div id="page-execution" class="page">
+                <div class="max-w-7xl mx-auto">
+                    <div class="flex items-center justify-between mb-8">
+                        <div><h2 class="text-2xl font-bold">مرحلة التنفيذ</h2><p class="text-gray-400 text-sm">الخطة اليومية</p></div>
+                    </div>
+                    <div class="glass-card p-6">
+                        <div class="flex items-center justify-between mb-6">
+                            <div><h3 class="font-bold text-lg">Today's Execution Plan</h3><p class="text-sm text-gray-400">May 20, 2024</p></div>
+                            <div class="text-right"><p class="text-sm text-gray-400">Completed</p><p class="text-xl font-bold text-brand-purple">2/6</p></div>
+                        </div>
+                        <div class="w-full bg-dark-600 rounded-full h-2 mb-8"><div class="progress-bar w-[33%] h-2 rounded-full" style="background: linear-gradient(90deg, #8b5cf6, #6366f1);"></div></div>
+                        <div class="space-y-3">
+                            <div class="task-item flex items-center justify-between p-4 rounded-xl bg-dark-800">
+                                <div class="flex items-center gap-4">
+                                    <div class="w-10 h-10 rounded-lg bg-dark-700 flex items-center justify-center text-sm font-bold text-gray-400">06:00</div>
+                                    <div><p class="font-semibold">Record comparison video</p><p class="text-xs text-gray-400">Why this product is better</p></div>
+                                </div>
+                                <span class="tag tag-red text-xs">High Impact</span>
+                            </div>
+                            <div class="task-item flex items-center justify-between p-4 rounded-xl bg-dark-800">
+                                <div class="flex items-center gap-4">
+                                    <div class="w-10 h-10 rounded-lg bg-dark-700 flex items-center justify-center text-sm font-bold text-gray-400">07:30</div>
+                                    <div><p class="font-semibold">Publish on TikTok</p><p class="text-xs text-gray-400">Optimal time for maximum reach</p></div>
+                                </div>
+                                <span class="tag tag-red text-xs">High Impact</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Page: Analytics -->
+            <div id="page-analytics" class="page">
+                <div class="max-w-7xl mx-auto">
+                    <div class="flex items-center justify-between mb-8">
+                        <div><h2 class="text-2xl font-bold">التحليل والنتائج</h2><p class="text-gray-400 text-sm">Performance Overview</p></div>
+                    </div>
+                    <div class="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
+                        <div class="glass-card p-4 text-center"><p class="text-gray-400 text-xs mb-1">Views</p><p class="text-2xl font-bold">12.4K</p><p class="text-xs text-green-400">+32%</p></div>
+                        <div class="glass-card p-4 text-center"><p class="text-gray-400 text-xs mb-1">Engagement</p><p class="text-2xl font-bold">1.8K</p><p class="text-xs text-green-400">+21%</p></div>
+                        <div class="glass-card p-4 text-center"><p class="text-gray-400 text-xs mb-1">Clicks</p><p class="text-2xl font-bold">342</p><p class="text-xs text-green-400">+18%</p></div>
+                        <div class="glass-card p-4 text-center"><p class="text-gray-400 text-xs mb-1">Sales</p><p class="text-2xl font-bold">7</p><p class="text-xs text-green-400">+75%</p></div>
+                        <div class="glass-card p-4 text-center"><p class="text-gray-400 text-xs mb-1">Revenue</p><p class="text-2xl font-bold">$174</p><p class="text-xs text-green-400">+75%</p></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Page: Learning -->
+            <div id="page-learning" class="page">
+                <div class="max-w-7xl mx-auto">
+                    <div class="flex items-center justify-between mb-8">
+                        <div><h2 class="text-2xl font-bold">التعلم والتطور</h2><p class="text-gray-400 text-sm">Enigma learns from every action</p></div>
+                    </div>
+                    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                        <div class="glass-card p-6">
+                            <h3 class="font-bold text-lg mb-4"><i class="fas fa-check-circle text-green-500 ml-2"></i>What's Working</h3>
+                            <div class="space-y-4">
+                                <div class="flex items-start gap-3">
+                                    <div class="w-6 h-6 rounded-full bg-green-500/20 flex items-center justify-center mt-0.5"><i class="fas fa-check text-green-500 text-xs"></i></div>
+                                    <div><p class="font-semibold text-sm">Comparison videos get most views</p><p class="text-xs text-gray-400">3x better performance</p></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="glass-card p-6">
+                            <h3 class="font-bold text-lg mb-4"><i class="fas fa-exclamation-circle text-red-500 ml-2"></i>What to Improve</h3>
+                            <div class="space-y-4">
+                                <div class="flex items-start gap-3">
+                                    <div class="w-6 h-6 rounded-full bg-red-500/20 flex items-center justify-center mt-0.5"><i class="fas fa-times text-red-500 text-xs"></i></div>
+                                    <div><p class="font-semibold text-sm">Sizing concern still high</p><p class="text-xs text-gray-400">20% of comments</p></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="space-y-6">
+                            <div class="glass-card p-6 text-center">
+                                <div class="w-20 h-20 rounded-full bg-gradient-to-br from-brand-purple to-brand-blue flex items-center justify-center mx-auto mb-4"><i class="fas fa-brain text-white text-3xl"></i></div>
+                                <h4 class="font-bold mb-2">Key Insight</h4>
+                                <p class="text-sm text-gray-400">Comparison videos are 3x more effective</p>
+                            </div>
+                            <div class="glass-card p-6">
+                                <h4 class="font-bold mb-3">Next Action</h4>
+                                <button class="btn-primary w-full text-sm"><i class="fas fa-plus ml-2"></i>Add to Tomorrow's Plan</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <!-- Page: Dashboard -->
+        <div id="page-dashboard" class="page">
+            <div class="max-w-7xl mx-auto">
+                <div class="flex items-center justify-between mb-8">
+                    <div>
+                        <h2 class="text-2xl font-bold">لوحة التحكم المطورين</h2>
+                        <p class="text-gray-400 text-sm">مراقبة تنفيذ Workers والمراقبة الحية</p>
+                    </div>
+                    <button onclick="refreshDashboard()" class="btn-secondary text-sm">
+                        <i class="fas fa-redo ml-2"></i>تحديث
+                    </button>
+                </div>
+                <!-- Summary Cards -->
+                <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-6" id="dashboard-summary">
+                    <div class="metric-card text-center"><div class="text-2xl font-bold text-brand-purple" id="summary-running">-</div><p class="text-xs text-gray-400">قيد التشغيل</p></div>
+                    <div class="metric-card text-center"><div class="text-2xl font-bold text-green-400" id="summary-completed">-</div><p class="text-xs text-gray-400">مكتمل</p></div>
+                    <div class="metric-card text-center"><div class="text-2xl font-bold text-red-400" id="summary-failed">-</div><p class="text-xs text-gray-400">فاشل</p></div>
+                    <div class="metric-card text-center"><div class="text-2xl font-bold text-brand-blue" id="summary-total">-</div><p class="text-xs text-gray-400">إجمالي</p></div>
+                    <div class="metric-card text-center"><div class="text-2xl font-bold text-brand-pink" id="summary-llm">-</div><p class="text-xs text-gray-400">استدعاءات LLM</p></div>
+                    <div class="metric-card text-center"><div class="text-2xl font-bold text-yellow-400" id="summary-avg-confidence">-</div><p class="text-xs text-gray-400">متوسط الثقة</p></div>
+                </div>
+                <!-- Registered Workers -->
+                <div class="glass-card p-6 mb-6">
+                    <h3 class="font-bold text-lg mb-4">Workers مسجلة</h3>
+                    <div id="registered-workers" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        <div class="text-gray-500 text-sm">جاري التحميل...</div>
+                    </div>
+                </div>
+                <!-- Tabs -->
+                <div class="flex gap-2 mb-4" id="dashboard-tabs">
+                    <button onclick="switchDashboardTab('running')" class="tab-btn active">قيد التشغيل</button>
+                    <button onclick="switchDashboardTab('completed')" class="tab-btn">مكتمل</button>
+                    <button onclick="switchDashboardTab('failed')" class="tab-btn">فاشل</button>
+                    <button onclick="switchDashboardTab('logs')" class="tab-btn">سجلات</button>
+                </div>
+                <style>
+                    .tab-btn { background: rgba(17,24,39,0.8); border:1px solid rgba(255,255,255,0.1); color: #9ca3af; padding: 8px 16px; border-radius: 10px; font-size: 0.875rem; cursor: pointer; transition: all 0.3s; }
+                    .tab-btn.active { background: linear-gradient(135deg,#8b5cf6,#6366f1); color: white; }
+                    .tab-pane { display: none; }
+                    .tab-pane.active { display: block; }
+                </style>
+                <div class="tab-contents">
+                    <div id="tab-running" class="tab-pane active"><div id="dashboard-running" class="space-y-3"><div class="text-gray-500 text-sm">No running workers</div></div></div>
+                    <div id="tab-completed" class="tab-pane"><div id="dashboard-completed" class="space-y-3"><div class="text-gray-500 text-sm">No completed executions</div></div></div>
+                    <div id="tab-failed" class="tab-pane"><div id="dashboard-failed" class="space-y-3"><div class="text-gray-500 text-sm">No failed executions</div></div></div>
+                    <div id="tab-logs" class="tab-pane"><div id="dashboard-logs" class="space-y-2" style="max-height:400px;overflow-y:auto;"><div class="text-gray-500 text-sm">No logs</div></div></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Page: Live Console -->
+        <div id="page-live-console" class="page">
+            <div class="max-w-7xl mx-auto">
+                <div class="flex items-center justify-between mb-8">
+                    <div>
+                        <h2 class="text-2xl font-bold">الكونسول المباشر</h2>
+                        <p class="text-gray-400 text-sm">أحداث Workers في الوقت الحقيقي</p>
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <span id="ws-status" class="tag tag-red text-xs">Disconnected</span>
+                        <button onclick="clearConsole()" class="btn-secondary text-xs py-1 px-3"><i class="fas fa-trash ml-1"></i>مسح</button>
+                        <button onclick="toggleWs()" class="btn-secondary text-xs py-1 px-3"><i class="fas fa-redo ml-1"></i>إعادة الاتصال</button>
+                    </div>
+                </div>
+                <div class="glass-card p-6">
+                    <div id="event-feed" class="space-y-2" style="max-height:600px;overflow-y:auto;">
+                        <div class="text-gray-500 text-sm text-center py-8" id="console-empty">
+                            <i class="fas fa-wifi text-gray-600 text-3xl mb-3"></i>
+                            <p>Waiting for worker events…</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ═══════════════════════════════════════════════════
+        // CONFIG
+        // ═══════════════════════════════════════════════════
+        const API_BASE = 'http://localhost:8000';
+        let authToken = localStorage.getItem('enigma_token') || null;
+        let currentUser = null;
+        let currentProduct = null;
+
+        // ═══════════════════════════════════════════════════
+        // UTILITIES
+        // ═══════════════════════════════════════════════════
+        function showToast(message, type = 'info') {
+            const toast = document.getElementById('toast');
+            const icon = document.getElementById('toast-icon');
+            const msg = document.getElementById('toast-message');
+            msg.textContent = message;
+            icon.className = type === 'error' ? 'fas fa-exclamation-circle text-red-500' : 
+                            type === 'success' ? 'fas fa-check-circle text-green-500' : 
+                            'fas fa-info-circle text-brand-purple';
+            toast.classList.remove('hidden');
+            setTimeout(() => toast.classList.add('hidden'), 3000);
+        }
+
+        function showLoading() { document.getElementById('loading').classList.remove('hidden'); }
+        function hideLoading() { document.getElementById('loading').classList.add('hidden'); }
+
+        // ═══════════════════════════════════════════════════
+        // AUTH
+        // ═══════════════════════════════════════════════════
+        async function apiCall(endpoint, options = {}) {
+            const url = `${API_BASE}${endpoint}`;
+            const config = {
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...(authToken && { 'Authorization': `Bearer ${authToken}` })
+                },
+                ...options
+            };
+            if (config.body && typeof config.body === 'object') {
+                config.body = JSON.stringify(config.body);
+            }
+
+            try {
+                showLoading();
+                const response = await fetch(url, config);
+                hideLoading();
+
+                if (response.status === 401) {
+                    logout();
+                    throw new Error('Unauthorized');
+                }
+
+                const data = await response.json();
+                if (!response.ok) {
+                    throw new Error(data.detail || 'Request failed');
+                }
+                return data;
+            } catch (error) {
+                hideLoading();
+                showToast(error.message, 'error');
+                throw error;
+            }
+        }
+
+        // Login
+        document.getElementById('login-form')?.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const email = document.getElementById('login-email').value;
+            const password = document.getElementById('login-password').value;
+
+            try {
+                const data = await apiCall('/auth/login', {
+                    method: 'POST',
+                    body: new URLSearchParams({ username: email, password: password })
+                });
+                authToken = data.access_token;
+                localStorage.setItem('enigma_token', authToken);
+                await loadUser();
+                showToast('تم تسجيل الدخول بنجاح!', 'success');
+            } catch (e) {
+                // Error handled by apiCall
+            }
+        });
+
+        // Register
+        document.getElementById('register-form')?.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const name = document.getElementById('reg-name').value;
+            const email = document.getElementById('reg-email').value;
+            const password = document.getElementById('reg-password').value;
+
+            try {
+                const data = await apiCall('/auth/register', {
+                    method: 'POST',
+                    body: { email, name, password }
+                });
+                authToken = data.access_token;
+                localStorage.setItem('enigma_token', authToken);
+                await loadUser();
+                showToast('تم إنشاء الحساب بنجاح!', 'success');
+            } catch (e) {}
+        });
+
+        async function loadUser() {
+            try {
+                const user = await apiCall('/auth/me');
+                currentUser = user;
+                document.getElementById('user-name').textContent = user.name;
+                document.getElementById('auth-pages').classList.add('hidden');
+                document.getElementById('main-app').classList.remove('hidden');
+                showPage('home');
+                loadProducts();
+            } catch (e) {
+                logout();
+            }
+        }
+
+        function logout() {
+            authToken = null;
+            currentUser = null;
+            localStorage.removeItem('enigma_token');
+            document.getElementById('auth-pages').classList.remove('hidden');
+            document.getElementById('main-app').classList.add('hidden');
+            showPage('login');
+        }
+
+        function skipAuth() {
+            document.getElementById('auth-pages').classList.add('hidden');
+            document.getElementById('main-app').classList.remove('hidden');
+            showPage('home');
+        }
+
+        // ═══════════════════════════════════════════════════
+        // NAVIGATION
+        // ═══════════════════════════════════════════════════
+        function showPage(pageName) {
+            // Hide all pages
+            document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+
+            // Show target page
+            const target = document.getElementById('page-' + pageName);
+            if (target) target.classList.add('active');
+
+            // Update sidebar
+            document.querySelectorAll('.sidebar-item').forEach(item => item.classList.remove('active'));
+            const sidebarItem = document.querySelector(`a[onclick="showPage('${pageName}')"]`);
+            if (sidebarItem) sidebarItem.classList.add('active');
+
+            window.scrollTo(0, 0);
+
+            // Page-specific init
+            if (pageName === 'dashboard') {
+                refreshDashboard();
+            } else if (pageName === 'live-console') {
+                initLiveConsole();
+            }
+        }
+
+        // ═══════════════════════════════════════════════════
+        // PRODUCTS
+        // ═══════════════════════════════════════════════════
+        async function loadProducts() {
+            if (!authToken) return;
+            try {
+                const products = await apiCall('/products');
+                renderProducts(products);
+            } catch (e) {}
+        }
+
+        function renderProducts(products) {
+            const grid = document.getElementById('products-grid');
+            const list = document.getElementById('products-list');
+
+            if (products.length === 0) {
+                grid.innerHTML = '<div class="col-span-full text-center text-gray-500 py-12">لا توجد منتجات. أضف منتجاً جديداً!</div>';
+                list.innerHTML = '<div class="p-4 rounded-xl bg-dark-800 text-center text-gray-500">لا توجد منتجات</div>';
+                return;
+            }
+
+            grid.innerHTML = products.map(p => `
+                <div class="glass-card p-6 cursor-pointer hover:border-brand-purple/50 transition" onclick="selectProduct('${p.id}')">
+                    <div class="flex items-center justify-between mb-4">
+                        <h3 class="font-bold">${p.name}</h3>
+                        <span class="tag ${p.status === 'active' ? 'tag-green' : 'tag-yellow'} text-xs">${p.status}</span>
+                    </div>
+                    <p class="text-sm text-gray-400 mb-3">${p.category}${p.subcategory ? ' / ' + p.subcategory : ''}</p>
+                    <div class="w-full bg-dark-600 rounded-full h-1.5">
+                        <div class="progress-bar w-[${p.status === 'onboarding' ? '20' : p.status === 'researching' ? '40' : p.status === 'strategizing' ? '60' : '80'}%]"></div>
+                    </div>
+                </div>
+            `).join('');
+
+            list.innerHTML = products.slice(0, 3).map(p => `
+                <div class="p-4 rounded-xl bg-dark-800 border ${p.status === 'active' ? 'border-brand-purple/30' : 'border-gray-700/50'} cursor-pointer" onclick="selectProduct('${p.id}')">
+                    <div class="flex items-center justify-between mb-2">
+                        <span class="font-semibold">${p.name}</span>
+                        <span class="tag ${p.status === 'active' ? 'tag-green' : 'tag-yellow'} text-xs">${p.status}</span>
+                    </div>
+                    <div class="w-full bg-dark-600 rounded-full h-1.5"><div class="progress-bar w-[${p.status === 'onboarding' ? '20' : '40'}%]"></div></div>
+                </div>
+            `).join('');
+        }
+
+        function showAddProductModal() {
+            document.getElementById('add-product-modal').classList.remove('hidden');
+        }
+        function hideAddProductModal() {
+            document.getElementById('add-product-modal').classList.add('hidden');
+        }
+
+        document.getElementById('add-product-form')?.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const data = {
+                name: document.getElementById('product-name').value,
+                category: document.getElementById('product-category').value,
+                subcategory: document.getElementById('product-subcategory').value,
+                target_market: document.getElementById('product-market').value,
+                description: document.getElementById('product-description').value
+            };
+
+            try {
+                const product = await apiCall('/products', { method: 'POST', body: data });
+                hideAddProductModal();
+                showToast('تم إنشاء المنتج بنجاح!', 'success');
+                loadProducts();
+                // Start onboarding
+                startOnboarding(product.id);
+            } catch (e) {}
+        });
+
+        async function selectProduct(productId) {
+            currentProduct = productId;
+            showPage('products');
+        }
+
+        // ═══════════════════════════════════════════════════
+        // ONBOARDING
+        // ═══════════════════════════════════════════════════
+        async function startOnboarding(productId) {
+            try {
+                const data = await apiCall(`/products/${productId}/onboarding`);
+                showOnboardingQuestions(data, productId);
+            } catch (e) {}
+        }
+
+        function showOnboardingQuestions(data, productId) {
+            const modal = document.createElement('div');
+            modal.id = 'onboarding-modal';
+            modal.className = 'fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4';
+
+            const allQuestions = [...data.basic_questions, ...data.smart_questions];
+            let currentQ = 0;
+            const answers = {};
+
+            function renderQuestion() {
+                const q = allQuestions[currentQ];
+                modal.innerHTML = `
+                    <div class="glass-card p-8 w-full max-w-lg">
+                        <div class="flex items-center justify-between mb-6">
+                            <h3 class="text-xl font-bold">تعريف المنتج</h3>
+                            <span class="text-sm text-gray-400">${currentQ + 1} / ${allQuestions.length}</span>
+                        </div>
+                        <p class="text-lg mb-4">${q.question}</p>
+                        <textarea id="onboarding-answer" class="input-field h-24 resize-none mb-4" placeholder="اكتب إجابتك هنا..."></textarea>
+                        <div class="flex gap-3">
+                            ${currentQ > 0 ? '<button onclick="prevQuestion()" class="btn-secondary flex-1">السابق</button>' : ''}
+                            <button onclick="nextQuestion()" class="btn-primary flex-1">${currentQ === allQuestions.length - 1 ? 'إنهاء' : 'التالي'}</button>
+                        </div>
+                        ${data.master_tips ? `<div class="mt-4 p-3 rounded-lg bg-brand-purple/10 border border-brand-purple/30"><p class="text-xs text-brand-purple"><i class="fas fa-lightbulb ml-1"></i>${data.master_tips.substring(0, 200)}...</p></div>` : ''}
+                    </div>
+                `;
+            }
+
+            window.nextQuestion = () => {
+                const answer = document.getElementById('onboarding-answer').value;
+                if (!answer.trim()) return showToast('الرجاء الإجابة على السؤال', 'error');
+                answers[allQuestions[currentQ].id] = answer;
+                currentQ++;
+                if (currentQ >= allQuestions.length) {
+                    submitOnboarding(productId, answers);
+                    modal.remove();
+                } else {
+                    renderQuestion();
+                }
+            };
+
+            window.prevQuestion = () => { currentQ--; renderQuestion(); };
+
+            document.body.appendChild(modal);
+            renderQuestion();
+        }
+
+        async function submitOnboarding(productId, answers) {
+            try {
+                const result = await apiCall(`/products/${productId}/onboarding`, {
+                    method: 'POST',
+                    body: { answers }
+                });
+                showToast('تم تحليل المنتج بنجاح!', 'success');
+                loadProducts();
+            } catch (e) {}
+        }
+
+        // ═══════════════════════════════════════════════════
+        // MASTER BRAIN CHAT
+        // ═══════════════════════════════════════════════════
+        document.getElementById('chat-form')?.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const input = document.getElementById('chat-input');
+            const message = input.value.trim();
+            if (!message) return;
+
+            addChatMessage(message, 'user');
+            input.value = '';
+
+            try {
+                const data = await apiCall('/brain/chat', {
+                    method: 'POST',
+                    body: { message }
+                });
+                addChatMessage(data.reply, 'ai');
+            } catch (e) {}
+        });
+
+        function addChatMessage(text, sender) {
+            const container = document.getElementById('chat-messages');
+            const div = document.createElement('div');
+            div.className = `chat-message ${sender === 'user' ? 'chat-user' : 'chat-ai'}`;
+            div.innerHTML = `<p class="text-sm">${text.replace(/\n/g, '<br>')}</p>`;
+            container.appendChild(div);
+            container.scrollTop = container.scrollHeight;
+        }
+
+        // ═══════════════════════════════════════════════════
+        // USER BRAIN
+        // ═══════════════════════════════════════════════════
+        async function setUserType(type) {
+            showLoading();
+            // Simulate API call for user type detection
+            setTimeout(() => {
+                hideLoading();
+                document.getElementById('user-type-badge').textContent = type;
+                document.getElementById('user-type-badge').className = 'tag tag-green';
+                document.getElementById('user-type-result').classList.remove('hidden');
+                document.getElementById('user-type-text').textContent = `تم التعرف على نوعك: ${type}. سيتم تخصيص الأنظمة لك.`;
+
+                // Show journey templates
+                document.getElementById('user-journey-content').innerHTML = `
+                    <div class="space-y-2">
+                        <div class="p-3 rounded-lg bg-brand-purple/10 border border-brand-purple/30">
+                            <p class="font-semibold text-sm text-brand-purple">Discovery</p>
+                            <p class="text-xs text-gray-400">اكتشاف ENIGMA وفهم الميزات</p>
+                        </div>
+                        <div class="p-3 rounded-lg bg-dark-800">
+                            <p class="font-semibold text-sm">Onboarding</p>
+                            <p class="text-xs text-gray-400">إضافة أول منتج وبدء البحث</p>
+                        </div>
+                        <div class="p-3 rounded-lg bg-dark-800">
+                            <p class="font-semibold text-sm">Daily Usage</p>
+                            <p class="text-xs text-gray-400">متابعة المهام والتنفيذ اليومي</p>
+                        </div>
+                    </div>
+                `;
+                showToast(`تم التعرف: ${type}`, 'success');
+            }, 1500);
+        }
+
+        // ═══════════════════════════════════════════════════
+        // GOALS
+        // ═══════════════════════════════════════════════════
+        function selectGoal(goal) {
+            document.getElementById('current-goal-tag').textContent = goal.replace('_', ' ');
+            showToast(`تم اختيار الهدف: ${goal}`, 'success');
+            showPage('workspace');
+        }
+
+         // ═══════════════════════════════════════════════════
+        // DASHBOARD
+        // ═══════════════════════════════════════════════════
+        async function refreshDashboard() {
+            try {
+                const data = await apiCall('/dashboard');
+                const s = data.summary;
+                document.getElementById('summary-running').textContent = s.running;
+                document.getElementById('summary-completed').textContent = s.completed;
+                document.getElementById('summary-failed').textContent = s.failed;
+                document.getElementById('summary-total').textContent = s.total_executions;
+                document.getElementById('summary-llm').textContent = s.total_llm_calls;
+                document.getElementById('summary-avg-confidence').textContent = (s.avg_confidence * 100).toFixed(1) + '%';
+
+                const w = document.getElementById('registered-workers');
+                const workers = data.workers || data.registered_workers || [];
+                w.innerHTML = workers.length > 0
+                    ? workers.map(worker => `
+                        <div class="glass-card p-4 rounded-xl">
+                            <div class="flex items-center gap-3 mb-2">
+                                <div class="w-8 h-8 rounded-lg bg-brand-purple/20 flex items-center justify-center"><i class="fas fa-cog text-brand-purple"></i></div>
+                                <div><h4 class="font-semibold">${worker.name}</h4><p class="text-xs text-gray-400">${worker.description || 'No description'}</p></div>
+                            </div>
+                        </div>
+                    `).join('')
+                    : '<div class="text-gray-500 text-sm">No workers registered</div>';
+
+                renderDashboardExecs('dashboard-running', data.recent_executions.filter(e => e.status === 'running'));
+                renderDashboardExecs('dashboard-completed', data.recent_executions.filter(e => e.status === 'success'));
+                renderDashboardExecs('dashboard-failed', data.recent_executions.filter(e => e.status === 'failed'));
+
+                document.getElementById('dashboard-logs').innerHTML = (data.recent_logs || []).length > 0
+                    ? data.recent_logs.map(e => `
+                        <div class="flex items-start gap-3 p-2 rounded-lg hover:bg-dark-800">
+                            <i class="fas fa-circle text-gray-500 text-xs mt-0.5"></i>
+                            <div class="flex-1">
+                                <div class="flex items-center gap-2 text-xs">
+                                    <span class="font-mono text-gray-500">${e.worker_name}</span>
+                                    <span class="text-gray-400">${e.event_type}</span>
+                                    <span class="text-gray-600">${e.timestamp ? new Date(e.timestamp).toLocaleTimeString() : ''}</span>
+                                </div>
+                                <p class="text-sm text-gray-300">${e.message}</p>
+                            </div>
+                        </div>
+                    `).join('')
+                    : '<div class="text-gray-500 text-sm">No logs</div>';
+            } catch (e) {}
+        }
+
+        function renderDashboardExecs(containerId, executions) {
+            const c = document.getElementById(containerId);
+            c.innerHTML = executions.length > 0
+                ? executions.map(e => `
+                    <div class="p-4 rounded-xl bg-dark-800 border border-gray-700">
+                        <div class="flex items-center justify-between mb-2">
+                            <div class="flex items-center gap-3">
+                                <span class="tag ${e.status === 'success' ? 'tag-green' : e.status === 'failed' ? 'tag-red' : 'tag-yellow'} text-xs">${e.status}</span>
+                                <span class="font-semibold">${e.worker_name}</span>
+                            </div>
+                            <span class="text-xs text-gray-400">${(e.execution_time || 0).toFixed(2)}s</span>
+                        </div>
+                        <div class="grid grid-cols-3 gap-4 text-xs text-gray-400">
+                            <div>Confidence: <span class="text-gray-300">${((e.confidence || 0) * 100).toFixed(0)}%</span></div>
+                            <div>LLM Calls: <span class="text-gray-300">${e.llm_calls || 0}</span></div>
+                            <div>Memory: <span class="text-gray-300">${e.memory_usage_mb ? e.memory_usage_mb.toFixed(2) + ' MB' : '-'}</span></div>
+                        </div>
+                        ${e.error ? `<p class="text-xs text-red-400 mt-2">${e.error}</p>` : ''}
+                    </div>
+                `).join('')
+                : '<div class="text-gray-500 text-sm">No items</div>';
+        }
+
+        function switchDashboardTab(tab) {
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+            event.target.classList.add('active');
+            document.getElementById('tab-' + tab).classList.add('active');
+        }
+
+        // ═══════════════════════════════════════════════════
+        // LIVE CONSOLE (TASK-006)
+        // ═══════════════════════════════════════════════════
+        let ws = null;
+        let reconnectTimer = null;
+        let wsMsgCount = 0;
+
+        function initLiveConsole() {
+            connectWs();
+        }
+
+        function connectWs() {
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const wsUrl = protocol + '//' + window.location.host + '/ws/events';
+            const statusEl = document.getElementById('ws-status');
+            statusEl.textContent = 'Connecting…';
+            statusEl.className = 'tag tag-yellow text-xs';
+
+            ws = new WebSocket(wsUrl);
+
+            ws.onopen = () => {
+                statusEl.textContent = 'Connected';
+                statusEl.className = 'tag tag-green text-xs';
+                const empty = document.getElementById('console-empty');
+                if (empty) empty.classList.add('hidden');
+            };
+
+            ws.onmessage = (event) => {
+                try {
+                    const data = JSON.parse(event.data);
+                    appendWsEvent(data);
+                } catch (err) {
+                    console.error('Failed to parse event:', err);
+                }
+            };
+
+            ws.onclose = () => {
+                statusEl.textContent = 'Disconnected';
+                statusEl.className = 'tag tag-red text-xs';
+                if (reconnectTimer) return;
+                reconnectTimer = setTimeout(() => {
+                    reconnectTimer = null;
+                    connectWs();
+                }, 3000);
+            };
+        }
+
+        function appendWsEvent(e) {
+            wsMsgCount++;
+            const feed = document.getElementById('event-feed');
+            if (!feed) return;
+            if (wsMsgCount > 500) {
+                feed.innerHTML = '';
+                wsMsgCount = 0;
+            }
+
+            const iconMap = {
+                started: 'fa-play-circle', finished: 'fa-flag-checkered',
+                error: 'fa-exclamation-triangle', progress: 'fa-circle-notch',
+                worker_registered: 'fa-cog', execution_started: 'fa-rocket',
+                verification_started: 'fa-shield-alt', research_started: 'fa-search',
+                audience_started: 'fa-users', keyword_started: 'fa-key',
+            };
+            const colorMap = {
+                started: 'text-blue-400', finished: 'text-green-400',
+                error: 'text-red-400', progress: 'text-yellow-400',
+                worker_registered: 'text-purple-400', execution_started: 'text-indigo-400',
+                verification_started: 'text-cyan-400', research_started: 'text-blue-300',
+                audience_started: 'text-pink-400', keyword_started: 'text-orange-400',
+            };
+            const icon = iconMap[e.type] || 'fa-circle';
+            const color = colorMap[e.type] || 'text-gray-500';
+            const time = e.timestamp ? new Date(e.timestamp).toLocaleTimeString() : '';
+            const dataStr = e.data && Object.keys(e.data).length > 0
+                ? '<pre class="text-xs text-gray-600 mt-1 whitespace-pre-wrap">' + JSON.stringify(e.data, null, 2) + '</pre>' : '';
+
+            const el = document.createElement('div');
+            el.className = 'flex items-start gap-3 p-3 rounded-lg bg-dark-800 border border-gray-700';
+            el.innerHTML = `
+                <div class="mt-0.5 flex-shrink-0"><i class="fas ${icon} ${color} text-xs"></i></div>
+                <div class="flex-1 min-w-0">
+                    <div class="flex items-center gap-3 flex-wrap">
+                        <span class="text-xs font-mono text-gray-500">${e.worker_name || 'system'}</span>
+                        <span class="text-xs text-gray-400">${e.type}</span>
+                        <span class="text-xs text-gray-600">${time}</span>
+                    </div>
+                    <p class="text-sm text-gray-300 mt-1">${e.message || ''}</p>
+                    ${dataStr}
+                </div>
+            `;
+            feed.insertBefore(el, feed.firstChild);
+        }
+
+        function toggleWs() {
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.close();
+                setTimeout(connectWs, 500);
+            } else {
+                connectWs();
+            }
+        }
+
+        function clearConsole() {
+            const feed = document.getElementById('event-feed');
+            if (feed) feed.innerHTML = '';
+            wsMsgCount = 0;
+            const empty = document.getElementById('console-empty');
+            if (empty) empty.classList.remove('hidden');
+        }
+
+        // ═══════════════════════════════════════════════════
+        // INIT
+        // ═══════════════════════════════════════════════════
+        document.addEventListener('DOMContentLoaded', () => {
+            if (authToken) {
+                loadUser();
+            } else {
+                showPage('login');
+            }
+            // Load dashboard data when the pages are created
+            const dashboardEl = document.getElementById('dashboard-summary');
+            if (dashboardEl) refreshDashboard();
+        });
+    </script>
+</body>
+</html>

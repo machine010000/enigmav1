@@ -1,0 +1,75 @@
+<div id="page-user-brain" class="page">
+                <div class="max-w-5xl mx-auto">
+                    <div class="flex items-center justify-between mb-8">
+                        <div>
+                            <h2 class="text-2xl font-bold">عقل المستخدم</h2>
+                            <p class="text-gray-400 text-sm">User Brain - Orchestrator</p>
+                        </div>
+                        <span id="user-type-badge" class="tag tag-yellow">جاري التعرف...</span>
+                    </div>
+
+                    <!-- User Type Detection -->
+                    <div class="glass-card p-6 mb-6">
+                        <h3 class="font-bold text-lg mb-4"><i class="fas fa-user-tag text-brand-purple ml-2"></i>نوع المستخدم</h3>
+                        <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                            <button onclick="setUserType('seller')" class="p-4 rounded-xl bg-dark-800 border border-gray-700 hover:border-brand-purple transition text-center">
+                                <i class="fas fa-store text-brand-purple text-2xl mb-2"></i>
+                                <p class="font-semibold text-sm">Seller</p>
+                                <p class="text-xs text-gray-400">بائع منتجات</p>
+                            </button>
+                            <button onclick="setUserType('service_provider')" class="p-4 rounded-xl bg-dark-800 border border-gray-700 hover:border-brand-purple transition text-center">
+                                <i class="fas fa-hands-helping text-brand-blue text-2xl mb-2"></i>
+                                <p class="font-semibold text-sm">Service Provider</p>
+                                <p class="text-xs text-gray-400">مقدم خدمات</p>
+                            </button>
+                            <button onclick="setUserType('content_creator')" class="p-4 rounded-xl bg-dark-800 border border-gray-700 hover:border-brand-purple transition text-center">
+                                <i class="fas fa-video text-pink-500 text-2xl mb-2"></i>
+                                <p class="font-semibold text-sm">Content Creator</p>
+                                <p class="text-xs text-gray-400">صانع محتوى</p>
+                            </button>
+                            <button onclick="setUserType('investor')" class="p-4 rounded-xl bg-dark-800 border border-gray-700 hover:border-brand-purple transition text-center">
+                                <i class="fas fa-chart-pie text-emerald-500 text-2xl mb-2"></i>
+                                <p class="font-semibold text-sm">Investor</p>
+                                <p class="text-xs text-gray-400">مستثمر</p>
+                            </button>
+                        </div>
+                        <div id="user-type-result" class="mt-4 hidden">
+                            <div class="p-4 rounded-xl bg-brand-purple/10 border border-brand-purple/30">
+                                <p class="font-semibold text-brand-purple mb-1">تم التعرف!</p>
+                                <p id="user-type-text" class="text-sm text-gray-300"></p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Journeys -->
+                    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                        <div class="glass-card p-6">
+                            <h3 class="font-bold mb-4"><i class="fas fa-route text-brand-purple ml-2"></i>User Journey</h3>
+                            <p class="text-sm text-gray-400 mb-4">رحلة المستخدم مع ENIGMA</p>
+                            <div id="user-journey-content" class="space-y-3">
+                                <div class="p-3 rounded-lg bg-dark-800 text-center text-gray-500 text-sm">
+                                    اختر نوع المستخدم أولاً
+                                </div>
+                            </div>
+                        </div>
+                        <div class="glass-card p-6">
+                            <h3 class="font-bold mb-4"><i class="fas fa-box text-brand-blue ml-2"></i>Product Journey</h3>
+                            <p class="text-sm text-gray-400 mb-4">رحلة المنتج من الفكرة للنجاح</p>
+                            <div id="product-journey-content" class="space-y-3">
+                                <div class="p-3 rounded-lg bg-dark-800 text-center text-gray-500 text-sm">
+                                    أنشئ منتج أولاً
+                                </div>
+                            </div>
+                        </div>
+                        <div class="glass-card p-6">
+                            <h3 class="font-bold mb-4"><i class="fas fa-industry text-emerald-500 ml-2"></i>Production Journey</h3>
+                            <p class="text-sm text-gray-400 mb-4">رحلة الإنتاج والتسليم</p>
+                            <div id="production-journey-content" class="space-y-3">
+                                <div class="p-3 rounded-lg bg-dark-800 text-center text-gray-500 text-sm">
+                                    اختر نوع المستخدم أولاً
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>

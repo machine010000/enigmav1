@@ -1,0 +1,62 @@
+<div id="page-profile-edit" class="page">
+    <div class="max-w-4xl mx-auto">
+        <div class="flex items-center justify-between mb-8">
+            <div>
+                <h2 class="text-2xl font-bold">Edit Profile</h2>
+                <p class="text-gray-400 text-sm">Update your Enigma Profile</p>
+            </div>
+            <button onclick="showPage('profile')" class="btn-secondary text-sm">
+                <i class="fas fa-times ml-2"></i>Cancel
+            </button>
+        </div>
+
+        <form id="profile-edit-form" class="space-y-6">
+            <!-- Identity Section -->
+            <div class="glass-card p-6">
+                <h3 class="font-bold text-lg mb-4">Identity</h3>
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-sm text-gray-400 mb-2">Display Name</label>
+                        <input type="text" id="edit-name" class="input-field" placeholder="Enigma" required>
+                    </div>
+                    <div>
+                        <label class="block text-sm text-gray-400 mb-2">Tagline / Description</label>
+                        <textarea id="edit-tagline" class="input-field" rows="3" placeholder="Your AI Business Brain"></textarea>
+                    </div>
+                    <div>
+                        <label class="block text-sm text-gray-400 mb-2">Professional Positioning</label>
+                        <input type="text" id="edit-positioning" class="input-field" placeholder="AI-powered business intelligence platform">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Profession Focus -->
+            <div class="glass-card p-6">
+                <h3 class="font-bold text-lg mb-4">Professional Focus</h3>
+                <p class="text-sm text-gray-400 mb-4">Select the professions Enigma should focus on</p>
+                <div id="edit-professions" class="space-y-3">
+                    <div class="text-gray-500 text-sm">Loading professions...</div>
+                </div>
+            </div>
+
+            <!-- Capabilities -->
+            <div class="glass-card p-6">
+                <h3 class="font-bold text-lg mb-4">Capabilities</h3>
+                <p class="text-sm text-gray-400 mb-4">Select capabilities Enigma should offer</p>
+                <div id="edit-capabilities" class="space-y-3">
+                    <div class="text-gray-500 text-sm">Loading capabilities...</div>
+                </div>
+            </div>
+
+            <!-- Actions -->
+            <div class="flex gap-4">
+                <button type="submit" class="btn-primary flex-1">
+                    <i class="fas fa-save ml-2"></i>Save Changes
+                </button>
+                <button type="button" onclick="showPage('profile')" class="btn-secondary flex-1">
+                    Cancel
+                </button>
+            </div>
+        </form>
+    </div>
+</div>

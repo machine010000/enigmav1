@@ -1,0 +1,18 @@
+services:
+  - type: web
+    name: enigma-api
+    runtime: docker
+    plan: free
+    envVars:
+      - key: DATABASE_URL
+        sync: false
+      - key: NVIDIA_API_KEY
+        sync: false
+      - key: NVIDIA_BASE_URL
+        value: https://integrate.api.nvidia.com/v1
+      - key: AI_MODEL
+        value: meta/llama-3.3-70b-instruct
+      - key: AI_PROVIDER
+        value: nvidia
+      - key: SECRET_KEY
+        generateValue: true

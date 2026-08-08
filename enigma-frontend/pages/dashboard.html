@@ -1,0 +1,92 @@
+<div id="page-dashboard" class="page">
+    <div class="max-w-7xl mx-auto">
+        <div class="flex items-center justify-between mb-8">
+            <div>
+                <h2 class="text-2xl font-bold">Developer Dashboard</h2>
+                <p class="text-gray-400 text-sm">Worker execution monitoring & live observability</p>
+            </div>
+            <button onclick="refreshDashboard()" class="btn-secondary text-sm">
+                <i class="fas fa-redo ml-2"></i>تحديث
+            </button>
+        </div>
+
+        <!-- Summary Cards -->
+        <div class="grid grid-cols-2 md:grid-cols-list gap-4 mb-6" id="dashboard-summary">
+            <div class="metric-card text-center">
+                <div class="text-2xl font-bold text-brand-purple" id="summary-running">-</div>
+                <p class="text-xs text-gray-400">Running</p>
+            </div>
+            <div class="metric-card text-center">
+                <div class="text-2xl font-bold text-green-400" id="summary-completed">-</div>
+                <p class="text-xs text-gray-400">Completed</p>
+            </div>
+            <div class="metric-card text-center">
+                <div class="text-2xl font-bold text-red-400" id="summary-failed">-</div>
+                <p class="text-xs text-gray-400">Failed</p>
+            </div>
+            <div class="metric-card text-center">
+                <div class="text-2xl font-bold text-brand-blue" id="summary-total">-</div>
+                <p class="text-xs text-gray-400">Total Executions</p>
+            </div>
+            <div class="metric-card text-center">
+                <div class="text-2xl font-bold text-brand-pink" id="summary-llm">-</div>
+                <p class="text-xs text-gray-400">LLM Calls</p>
+            </div>
+            <div class="metric-card text-center">
+                <div class="text-2xl font-bold text-yellow-400" id="summary-avg-confidence">-</div>
+                <p class="text-xs text-gray-400">Avg Confidence</p>
+            </div>
+        </div>
+
+        <!-- Registered Workers -->
+        <div class="glass-card p-6 mb-6">
+            <h3 class="font-bold text-lg mb-4">Registered Workers</h3>
+            <div id="registered-workers" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <div class="text-gray-500 text-sm">جارٍ التحميل...</div>
+            </div>
+        </div>
+
+        <!-- Tabs -->
+        <div class="flex gap-2 mb-4" id="dashboard-tabs">
+            <button onclick="switchDashboardTab('running')" class="tab-btn active">Running</button>
+            <button onclick="switchDashboardTab('completed')" class="tab-btn">Completed</button>
+            <button onclick="switchDashboardTab('failed')" class="tab-btn">Failed</button>
+            <button onclick="switchDashboardTab('logs')" class="tab-btn">Logs</button>
+            <button onclick="switchDashboardTab('decisions')" class="tab-btn">Decisions</button>
+        </div>
+        <style>
+            .tab-btn { @apply bg-dark-800 text-gray-400 px-4 py-2 rounded-lg text-sm transition; }
+            .tab-btn.active { @apply bg-brand-purple text-white; }
+            .tab-pane { display: none; }
+            .tab-pane.active { display: block; }
+        </style>
+
+        <div class="tab-contents">
+            <div id="tab-running" class="tab-pane active">
+                <div id="dashboard-running" class="space-y-3">
+                    <div class="text-gray-500 text-sm">No running workers</div>
+                </div>
+            </div>
+            <div id="tab-completed" class="tab-pane">
+                <div id="dashboard-completed" class="space-y-3">
+                    <div class="text-gray-500 text-sm">No completed executions</div>
+                </div>
+            </div>
+            <div id="tab-failed" class="tab-pane">
+                <div id="dashboard-failed" class="space-y-3">
+                    <div class="text-gray-500 text-sm">No failed executions</div>
+                </div>
+            </div>
+            <div id="tab-logs" class="tab-pane">
+                <div id="dashboard-logs" class="space-y-2" style="max-height: 400px; overflow-y: auto;">
+                    <div class="text-gray-500 text-sm">No logs</div>
+                </div>
+            </div>
+            <div id="tab-decisions" class="tab-pane">
+                <div id="dashboard-decisions" class="space-y-3">
+                    <div class="text-gray-500 text-sm">No decisions recorded</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

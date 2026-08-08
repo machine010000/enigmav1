@@ -1,0 +1,170 @@
+<div id="page-freelancing" class="page">
+    <div class="max-w-7xl mx-auto">
+        <div class="flex items-center justify-between mb-8">
+            <div>
+                <h2 class="text-2xl font-bold">Freelancing Workspace</h2>
+                <p class="text-gray-400 text-sm">Discover, evaluate, and apply to freelance work</p>
+            </div>
+            <div class="flex items-center gap-2">
+                <span class="text-xs text-gray-400">Status:</span>
+                <span id="freelancing-status" class="tag tag-yellow text-xs">LOADING</span>
+            </div>
+        </div>
+
+        <!-- Navigation Tabs -->
+        <div class="flex gap-2 mb-6 overflow-x-auto pb-2">
+            <button onclick="showFreelancingTab('overview')" class="freelancing-tab active px-4 py-2 rounded-lg text-sm font-semibold bg-brand-purple/20 text-brand-purple border border-brand-purple/50">Overview</button>
+            <button onclick="showFreelancingTab('platforms')" class="freelancing-tab px-4 py-2 rounded-lg text-sm font-semibold bg-dark-800 text-gray-400 border border-gray-700 hover:border-brand-purple/50 transition">Platforms</button>
+            <button onclick="showFreelancingTab('capabilities')" class="freelancing-tab px-4 py-2 rounded-lg text-sm font-semibold bg-dark-800 text-gray-400 border border-gray-700 hover:border-brand-purple/50 transition">Capabilities</button>
+            <button onclick="showFreelancingTab('jobs')" class="freelancing-tab px-4 py-2 rounded-lg text-sm font-semibold bg-dark-800 text-gray-400 border border-gray-700 hover:border-brand-purple/50 transition">Jobs</button>
+            <button onclick="showFreelancingTab('applications')" class="freelancing-tab px-4 py-2 rounded-lg text-sm font-semibold bg-dark-800 text-gray-400 border border-gray-700 hover:border-brand-purple/50 transition">Applications</button>
+            <button onclick="showFreelancingTab('active-work')" class="freelancing-tab px-4 py-2 rounded-lg text-sm font-semibold bg-dark-800 text-gray-400 border border-gray-700 hover:border-brand-purple/50 transition">Active Work</button>
+        </div>
+
+        <!-- Overview Tab -->
+        <div id="freelancing-tab-overview" class="freelancing-tab-content">
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-6">
+                <div class="glass-card p-6">
+                    <div class="flex items-center gap-3 mb-4">
+                        <div class="w-10 h-10 rounded-lg bg-brand-purple/20 flex items-center justify-center">
+                            <i class="fas fa-plug text-brand-purple"></i>
+                        </div>
+                        <h3 class="font-bold">Platforms Connected</h3>
+                    </div>
+                    <p class="text-3xl font-bold" id="overview-platforms">-</p>
+                    <p class="text-xs text-gray-400 mt-1">Active connections</p>
+                </div>
+                <div class="glass-card p-6">
+                    <div class="flex items-center gap-3 mb-4">
+                        <div class="w-10 h-10 rounded-lg bg-brand-blue/20 flex items-center justify-center">
+                            <i class="fas fa-cogs text-brand-blue"></i>
+                        </div>
+                        <h3 class="font-bold">Professional Capabilities</h3>
+                    </div>
+                    <p class="text-3xl font-bold" id="overview-capabilities">-</p>
+                    <p class="text-xs text-gray-400 mt-1">Ready capabilities</p>
+                </div>
+                <div class="glass-card p-6">
+                    <div class="flex items-center gap-3 mb-4">
+                        <div class="w-10 h-10 rounded-lg bg-green-500/20 flex items-center justify-center">
+                            <i class="fas fa-check-circle text-green-400"></i>
+                        </div>
+                        <h3 class="font-bold">Job Readiness</h3>
+                    </div>
+                    <p class="text-3xl font-bold" id="overview-readiness">-</p>
+                    <p class="text-xs text-gray-400 mt-1">Overall readiness</p>
+                </div>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div class="glass-card p-6">
+                    <div class="flex items-center gap-3 mb-4">
+                        <div class="w-10 h-10 rounded-lg bg-orange-500/20 flex items-center justify-center">
+                            <i class="fas fa-search text-orange-400"></i>
+                        </div>
+                        <h3 class="font-bold">Jobs Discovered</h3>
+                    </div>
+                    <p class="text-3xl font-bold" id="overview-jobs">-</p>
+                    <p class="text-xs text-gray-400 mt-1">Available jobs</p>
+                </div>
+                <div class="glass-card p-6">
+                    <div class="flex items-center gap-3 mb-4">
+                        <div class="w-10 h-10 rounded-lg bg-pink-500/20 flex items-center justify-center">
+                            <i class="fas fa-paper-plane text-pink-400"></i>
+                        </div>
+                        <h3 class="font-bold">Applications</h3>
+                    </div>
+                    <p class="text-3xl font-bold" id="overview-applications">-</p>
+                    <p class="text-xs text-gray-400 mt-1">Total applications</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Platforms Tab -->
+        <div id="freelancing-tab-platforms" class="freelancing-tab-content hidden">
+            <div class="glass-card p-6 mb-6">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="font-bold text-lg">Platform Registry</h3>
+                    <button class="btn-secondary text-xs py-2 px-4">
+                        <i class="fas fa-plus ml-1"></i>Add Platform
+                    </button>
+                </div>
+                <div id="platforms-list" class="space-y-4">
+                    <div class="text-gray-500 text-sm">Loading platforms...</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Capabilities Tab -->
+        <div id="freelancing-tab-capabilities" class="freelancing-tab-content hidden">
+            <div class="glass-card p-6 mb-6">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="font-bold text-lg">Capability Mapping</h3>
+                    <button onclick="showPage('profile')" class="btn-secondary text-xs py-2 px-4">
+                        <i class="fas fa-user ml-1"></i>Manage Profile
+                    </button>
+                </div>
+                <div id="capabilities-list" class="space-y-4">
+                    <div class="text-gray-500 text-sm">Loading capabilities...</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Jobs Tab -->
+        <div id="freelancing-tab-jobs" class="freelancing-tab-content hidden">
+            <div class="glass-card p-6 mb-6">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="font-bold text-lg">Job Discovery</h3>
+                    <button class="btn-primary text-xs py-2 px-4">
+                        <i class="fas fa-sync ml-1"></i>Refresh Jobs
+                    </button>
+                </div>
+                <div id="jobs-list" class="space-y-4">
+                    <div class="text-gray-500 text-sm">Loading jobs...</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Applications Tab -->
+        <div id="freelancing-tab-applications" class="freelancing-tab-content hidden">
+            <div class="glass-card p-6 mb-6">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="font-bold text-lg">Applications</h3>
+                    <button class="btn-primary text-xs py-2 px-4">
+                        <i class="fas fa-plus ml-1"></i>New Application
+                    </button>
+                </div>
+                <div id="applications-list" class="space-y-4">
+                    <div class="text-gray-500 text-sm">Loading applications...</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Active Work Tab -->
+        <div id="freelancing-tab-active-work" class="freelancing-tab-content hidden">
+            <div class="glass-card p-6">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="font-bold text-lg">Active Work</h3>
+                    <span class="text-xs text-gray-400">Lifecycle: ACCEPTED → ONBOARDING → EXECUTION → REVIEW → DELIVERY → COMPLETED</span>
+                </div>
+                <div id="active-work-list" class="space-y-4">
+                    <div class="text-gray-500 text-sm">No active work</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Job Detail Modal -->
+<div id="job-detail-modal" class="fixed inset-0 bg-black/50 z-50 hidden flex items-center justify-center p-4">
+    <div class="glass-card max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+        <div class="flex items-center justify-between p-6 border-b border-gray-700">
+            <h3 class="font-bold text-lg">Job Detail</h3>
+            <button onclick="closeJobDetailModal()" class="text-gray-400 hover:text-white">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <div id="job-detail-content" class="p-6">
+            <div class="text-gray-500 text-sm">Loading job detail...</div>
+        </div>
+    </div>
+</div>

@@ -1,0 +1,39 @@
+<div id="add-product-modal" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+                <div class="glass-card p-8 w-full max-w-lg max-h-[90vh] overflow-y-auto">
+                    <div class="flex items-center justify-between mb-6">
+                        <h3 class="text-xl font-bold">إضافة منتج جديد</h3>
+                        <button onclick="hideAddProductModal()" class="text-gray-400 hover:text-white"><i class="fas fa-times text-xl"></i></button>
+                    </div>
+                    <form id="add-product-form" class="space-y-4">
+                        <div>
+                            <label class="block text-sm text-gray-400 mb-2">اسم المنتج</label>
+                            <input type="text" id="product-name" class="input-field" placeholder="مثال: Black Oversized T-Shirt" required>
+                        </div>
+                        <div>
+                            <label class="block text-sm text-gray-400 mb-2">الفئة</label>
+                            <select id="product-category" class="input-field" required>
+                                <option value="">اختر الفئة</option>
+                                <option value="fashion">Fashion</option>
+                                <option value="tech">Tech</option>
+                                <option value="food">Food</option>
+                                <option value="beauty">Beauty</option>
+                                <option value="home">Home</option>
+                                <option value="other">Other</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm text-gray-400 mb-2">الفئة الفرعية</label>
+                            <input type="text" id="product-subcategory" class="input-field" placeholder="مثال: T-Shirt">
+                        </div>
+                        <div>
+                            <label class="block text-sm text-gray-400 mb-2">السوق المستهدف</label>
+                            <input type="text" id="product-market" class="input-field" placeholder="مثال: Egypt, Saudi, Global">
+                        </div>
+                        <div>
+                            <label class="block text-sm text-gray-400 mb-2">وصف المنتج</label>
+                            <textarea id="product-description" class="input-field h-24 resize-none" placeholder="صف المنتج بإيجاز..."></textarea>
+                        </div>
+                        <button type="submit" class="btn-primary w-full">إنشاء المنتج وبدء التعريف</button>
+                    </form>
+                </div>
+            </div>

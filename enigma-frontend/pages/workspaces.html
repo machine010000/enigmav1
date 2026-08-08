@@ -1,0 +1,50 @@
+<div id="page-workspaces" class="page">
+    <div class="max-w-7xl mx-auto">
+        <div class="flex items-center justify-between mb-8">
+            <div>
+                <h2 class="text-2xl font-bold">Workspaces</h2>
+                <p class="text-gray-400 text-sm">Select and manage your workspaces</p>
+            </div>
+            <div id="active-workspace-display">
+                <div class="text-gray-500 text-sm">No active workspace</div>
+            </div>
+        </div>
+
+        <!-- Available Workspaces -->
+        <div class="glass-card p-6 mb-6">
+            <h3 class="font-bold text-lg mb-4">Available Workspaces</h3>
+            <div id="workspaces-list" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <div class="text-gray-500 text-sm">Loading workspaces...</div>
+            </div>
+        </div>
+
+        <!-- Workspace Info -->
+        <div class="glass-card p-6">
+            <h3 class="font-bold text-lg mb-4">About Workspaces</h3>
+            <p class="text-sm text-gray-400 mb-4">
+                Workspaces are specialized environments for different aspects of your professional activities.
+                Each workspace has its own tools, data, and workflows tailored to its purpose.
+            </p>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div class="p-4 rounded-xl bg-dark-800 border border-brand-purple/30">
+                    <div class="flex items-center gap-3 mb-2">
+                        <div class="w-10 h-10 rounded-lg bg-brand-purple/20 flex items-center justify-center">
+                            <i class="fas fa-briefcase text-brand-purple"></i>
+                        </div>
+                        <h4 class="font-bold">Freelancing</h4>
+                    </div>
+                    <p class="text-xs text-gray-400">Manage platform connections, job discovery, applications, and active work.</p>
+                </div>
+                <div class="p-4 rounded-xl bg-dark-800 border border-brand-blue/30">
+                    <div class="flex items-center gap-3 mb-2">
+                        <div class="w-10 h-10 rounded-lg bg-brand-blue/20 flex items-center justify-center">
+                            <i class="fas fa-bullhorn text-brand-blue"></i>
+                        </div>
+                        <h4 class="font-bold">Brand & Marketing</h4>
+                    </div>
+                    <p class="text-xs text-gray-400">Manage brand identity, content generation, campaigns, and marketing analytics.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

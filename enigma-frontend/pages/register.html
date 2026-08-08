@@ -1,0 +1,28 @@
+<div id="page-register" class="page min-h-screen flex items-center justify-center p-4">
+            <div class="glass-card p-8 w-full max-w-md">
+                <div class="text-center mb-8">
+                    <div class="w-16 h-16 rounded-2xl bg-gradient-to-br from-brand-purple to-brand-blue flex items-center justify-center mx-auto mb-4">
+                        <i class="fas fa-brain text-white text-2xl"></i>
+                    </div>
+                    <h1 class="text-2xl font-bold">إنشاء حساب</h1>
+                </div>
+                <form id="register-form" class="space-y-4">
+                    <div>
+                        <label class="block text-sm text-gray-400 mb-2">الاسم</label>
+                        <input type="text" id="reg-name" class="input-field" placeholder="أحمد محمد" required>
+                    </div>
+                    <div>
+                        <label class="block text-sm text-gray-400 mb-2">البريد الإلكتروني</label>
+                        <input type="email" id="reg-email" class="input-field" placeholder="email@example.com" required>
+                    </div>
+                    <div>
+                        <label class="block text-sm text-gray-400 mb-2">كلمة المرور</label>
+                        <input type="password" id="reg-password" class="input-field" placeholder="••••••••" required>
+                    </div>
+                    <button type="submit" class="btn-primary w-full">إنشاء حساب</button>
+                </form>
+                <p class="text-center text-sm text-gray-400 mt-4">
+                    لديك حساب؟ <a href="#" onclick="showPage('login')" class="text-brand-purple">سجل دخول</a>
+                </p>
+            </div>
+        </div>

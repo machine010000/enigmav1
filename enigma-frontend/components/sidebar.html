@@ -1,0 +1,50 @@
+<aside class="fixed right-0 top-0 h-full w-64 glass z-50 hidden lg:flex flex-col">
+            <div class="p-6 flex items-center gap-3">
+                <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-brand-purple to-brand-blue flex items-center justify-center">
+                    <i class="fas fa-brain text-white text-lg"></i>
+                </div>
+                <div>
+                    <h1 class="font-bold text-lg tracking-wide">ENIGMA</h1>
+                    <p class="text-xs text-gray-400">Your AI Business Brain</p>
+                </div>
+            </div>
+            <nav class="flex-1 px-4 space-y-1 mt-4">
+                <a onclick="showPage('home')" class="sidebar-item active flex items-center gap-3 px-4 py-3 rounded-xl text-sm">
+                    <i class="fas fa-home w-5"></i><span>Home</span>
+                </a>
+                <a onclick="showPage('profile')" class="sidebar-item flex items-center gap-3 px-4 py-3 rounded-xl text-sm">
+                    <i class="fas fa-user w-5"></i><span>Profile</span>
+                </a>
+                <a onclick="showPage('workspaces')" class="sidebar-item flex items-center gap-3 px-4 py-3 rounded-xl text-sm">
+                    <i class="fas fa-th-large w-5"></i><span>Workspaces</span>
+                </a>
+                <div class="border-t border-gray-700 my-2"></div>
+                <p class="text-xs text-gray-500 px-4 py-2">WORKSPACES</p>
+                <a onclick="showPage('freelancing')" class="sidebar-item flex items-center gap-3 px-4 py-3 rounded-xl text-sm">
+                    <i class="fas fa-briefcase w-5"></i><span>Freelancing</span>
+                </a>
+                <a onclick="showPage('brand')" class="sidebar-item flex items-center gap-3 px-4 py-3 rounded-xl text-sm">
+                    <i class="fas fa-bullhorn w-5"></i><span>Brand & Marketing</span>
+                </a>
+                <div class="border-t border-gray-700 my-2"></div>
+                <p class="text-xs text-gray-500 px-4 py-2">DEVELOPER TOOLS</p>
+                <a onclick="showPage('dashboard')" class="sidebar-item flex items-center gap-3 px-4 py-3 rounded-xl text-sm">
+                    <i class="fas fa-tachometer-alt w-5"></i><span>Dashboard</span>
+                </a>
+                <a onclick="showPage('live-console')" class="sidebar-item flex items-center gap-3 px-4 py-3 rounded-xl text-sm">
+                    <i class="fas fa-wifi w-5"></i><span>Live Console</span>
+                </a>
+            </nav>
+            <div class="p-4">
+                <div class="glass-card p-4">
+                    <div class="flex items-center gap-3 mb-3">
+                        <div class="w-8 h-8 rounded-full bg-gradient-to-br from-brand-purple to-brand-pink"></div>
+                        <div>
+                            <p id="user-name" class="text-sm font-semibold">User</p>
+                            <p class="text-xs text-gray-400">خطة Pro</p>
+                        </div>
+                    </div>
+                    <button onclick="logout()" class="w-full py-2 rounded-lg bg-dark-600 text-xs hover:bg-dark-500 transition">تسجيل الخروج</button>
+                </div>
+            </div>
+        </aside>
