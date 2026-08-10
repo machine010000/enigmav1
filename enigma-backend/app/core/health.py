@@ -7,6 +7,7 @@ Production health checks and configuration validation.
 from typing import Dict, Any, List
 from datetime import datetime
 import asyncio
+from sqlalchemy import text
 
 from app.core.config import settings, is_production
 
@@ -167,11 +168,11 @@ class HealthCheck:
         
         try:
             from app.database import engine
-            
+
             # Simple connection test
             async with engine.begin() as conn:
-                await conn.execute("SELECT 1")
-            
+                await conn.execute(text("SELECT 1"))
+
             return True
         
         except Exception as e:
@@ -202,14 +203,14 @@ class HealthCheck:
     async def check_ai_provider_connection(self) -> bool:
         """Check AI provider connection."""
         self.checks.append("AI provider connection check")
-        
+
         if not settings.NVIDIA_API_KEY:
             self.warnings.append("NVIDIA_API_KEY not set (skipping AI provider check)")
             return True
-        
+
         try:
             from app.ai.gateway import gateway
-            
+
             # Simple test call
             result = await gateway.classify(
                 system="You are a classifier.",
@@ -217,15 +218,16 @@ class HealthCheck:
                 temperature=0.1,
                 max_tokens=10,
             )
-            
+
             if not result:
-                self.errors.append("AI provider returned empty response")
+                self.warnings.append("AI provider returned empty response")
                 return False
-            
+
             return True
-        
+
         except Exception as e:
-            self.errors.append(f"AI provider connection failed: {str(e)}")
+            # AI provider is optional - warn but don't fail startup
+            self.warnings.append(f"AI provider connection failed: {str(e)}")
             return False
     
     async def run_all_checks(self) -> Dict[str, Any]:
