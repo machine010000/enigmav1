@@ -4,7 +4,7 @@ OAuth Token Database Models
 Secure, encrypted storage for OAuth tokens.
 """
 
-from sqlalchemy import Column, String, DateTime, Text, Index, Boolean
+from sqlalchemy import Column, Integer, String, DateTime, Text, Index, Boolean
 from sqlalchemy.dialects.postgresql import ENUM
 from sqlalchemy.orm import relationship
 from datetime import datetime
