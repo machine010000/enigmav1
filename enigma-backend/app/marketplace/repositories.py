@@ -322,7 +322,7 @@ class DatabaseMarketplaceAccountStateRepository(MarketplaceAccountStateRepositor
             model.source = DataSource(state.source.value)
             model.confidence = state.confidence
             model.freshness = FreshnessStatus(state.freshness.value)
-            model.metadata = state.metadata
+            model.account_metadata = state.metadata
             model.updated_at = datetime.utcnow()
         else:
             # Create new
@@ -346,7 +346,7 @@ class DatabaseMarketplaceAccountStateRepository(MarketplaceAccountStateRepositor
                 source=DataSource(state.source.value),
                 confidence=state.confidence,
                 freshness=FreshnessStatus(state.freshness.value),
-                metadata=state.metadata,
+                account_metadata=state.metadata,
             )
             self.db.add(model)
         
@@ -426,7 +426,7 @@ class DatabaseMarketplaceAccountStateRepository(MarketplaceAccountStateRepositor
             source=DataSource(model.source.value),
             confidence=model.confidence,
             freshness=FreshnessStatus(model.freshness.value),
-            metadata=model.metadata or {},
+            metadata=model.account_metadata or {},
         )
 
 
@@ -490,7 +490,7 @@ class DatabaseMarketplaceJobRepository(MarketplaceJobRepository):
             model.deadline = job.deadline
             model.url = job.url
             model.platform_cost = job.platform_cost.__dict__ if job.platform_cost else None
-            model.metadata = job.metadata
+            model.job_metadata = job.metadata
             model.synced_at = datetime.utcnow()
             model.updated_at = datetime.utcnow()
         else:
@@ -514,7 +514,7 @@ class DatabaseMarketplaceJobRepository(MarketplaceJobRepository):
                 deadline=job.deadline,
                 url=job.url,
                 platform_cost=job.platform_cost.__dict__ if job.platform_cost else None,
-                metadata=job.metadata,
+                job_metadata=job.metadata,
                 synced_at=datetime.utcnow(),
             )
             self.db.add(model)
@@ -623,7 +623,7 @@ class DatabaseMarketplaceJobRepository(MarketplaceJobRepository):
             deadline=model.deadline,
             url=model.url,
             platform_cost=platform_cost,
-            metadata=model.metadata or {},
+            metadata=model.job_metadata or {},
         )
 
 
@@ -684,7 +684,7 @@ class DatabaseMarketplaceJobAssessmentRepository(MarketplaceJobAssessmentReposit
             model.recommendations = assessment.get("recommendations", [])
             model.assessed_at = datetime.utcnow()
             model.assessment_version = assessment.get("assessment_version", "1.0")
-            model.metadata = assessment.get("metadata", {})
+            model.assessment_metadata = assessment.get("metadata", {})
             model.updated_at = datetime.utcnow()
         else:
             # Create new
@@ -702,7 +702,7 @@ class DatabaseMarketplaceJobAssessmentRepository(MarketplaceJobAssessmentReposit
                 recommendations=assessment.get("recommendations", []),
                 assessed_at=datetime.utcnow(),
                 assessment_version=assessment.get("assessment_version", "1.0"),
-                metadata=assessment.get("metadata", {}),
+                assessment_metadata=assessment.get("metadata", {}),
             )
             self.db.add(model)
         
@@ -762,7 +762,7 @@ class DatabaseMarketplaceJobAssessmentRepository(MarketplaceJobAssessmentReposit
             "recommendations": model.recommendations or [],
             "assessed_at": model.assessed_at.isoformat() if model.assessed_at else None,
             "assessment_version": model.assessment_version,
-            "metadata": model.metadata or {},
+            "metadata": model.assessment_metadata or {},
         }
 
 
@@ -820,7 +820,7 @@ class DatabaseMarketplaceApplicationRepository(MarketplaceApplicationRepository)
             model.bid_amount = float(application.bid_amount) if application.bid_amount else None
             model.currency = application.currency
             model.submitted_at = application.submitted_at
-            model.metadata = application.metadata
+            model.application_metadata = application.metadata
             model.updated_at = datetime.utcnow()
         else:
             # Create new
@@ -839,7 +839,7 @@ class DatabaseMarketplaceApplicationRepository(MarketplaceApplicationRepository)
                 bid_amount=float(application.bid_amount) if application.bid_amount else None,
                 currency=application.currency,
                 submitted_at=application.submitted_at,
-                metadata=application.metadata,
+                application_metadata=application.metadata,
             )
             self.db.add(model)
         
@@ -918,7 +918,7 @@ class DatabaseMarketplaceApplicationRepository(MarketplaceApplicationRepository)
 
     def _model_to_contract(self, model: MarketplaceApplicationModel) -> NormalizedApplication:
         """Convert database model to contract."""
-        metadata = model.metadata or {}
+        metadata = model.application_metadata or {}
         if model.status_history:
             metadata["status_history"] = model.status_history
         
@@ -996,7 +996,7 @@ class DatabaseMarketplaceActiveWorkRepository(MarketplaceActiveWorkRepository):
             model.progress_percentage = work.get("progress_percentage", 0.0)
             model.milestones_completed = work.get("milestones_completed", 0)
             model.milestones_total = work.get("milestones_total")
-            model.metadata = work.get("metadata", {})
+            model.work_metadata = work.get("metadata", {})
             model.updated_at = datetime.utcnow()
         else:
             # Create new
@@ -1018,7 +1018,7 @@ class DatabaseMarketplaceActiveWorkRepository(MarketplaceActiveWorkRepository):
                 progress_percentage=work.get("progress_percentage", 0.0),
                 milestones_completed=work.get("milestones_completed", 0),
                 milestones_total=work.get("milestones_total"),
-                metadata=work.get("metadata", {}),
+                work_metadata=work.get("metadata", {}),
             )
             self.db.add(model)
         
@@ -1087,5 +1087,5 @@ class DatabaseMarketplaceActiveWorkRepository(MarketplaceActiveWorkRepository):
             "progress_percentage": model.progress_percentage,
             "milestones_completed": model.milestones_completed,
             "milestones_total": model.milestones_total,
-            "metadata": model.metadata or {},
+            "metadata": model.work_metadata or {},
         }

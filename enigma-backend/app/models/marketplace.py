@@ -91,7 +91,7 @@ class MarketplaceAccountState(Base):
     freshness = Column(ENUM(FreshnessStatusEnum, name="freshness_status_enum"), default=FreshnessStatusEnum.UNKNOWN)
     
     # Additional platform-specific data
-    metadata = Column(JSON, default=dict)
+    account_metadata = Column("metadata", JSON, default=dict)
     
     # Timestamps
     created_at = Column(DateTime, default=datetime.utcnow)
@@ -141,7 +141,7 @@ class MarketplaceJob(Base):
     platform_cost = Column(JSON, nullable=True)  # PlatformCost as JSON
     
     # Additional data
-    metadata = Column(JSON, default=dict)
+    job_metadata = Column("metadata", JSON, default=dict)
     
     # Timestamps
     created_at = Column(DateTime, default=datetime.utcnow)
@@ -182,7 +182,7 @@ class MarketplaceJobAssessment(Base):
     # Metadata
     assessed_at = Column(DateTime, default=datetime.utcnow)
     assessment_version = Column(String, default="1.0")
-    metadata = Column(JSON, default=dict)
+    assessment_metadata = Column("metadata", JSON, default=dict)
     
     # Timestamps
     created_at = Column(DateTime, default=datetime.utcnow)
@@ -226,7 +226,7 @@ class MarketplaceApplication(Base):
     submitted_at = Column(DateTime, nullable=True)
     
     # Additional data
-    metadata = Column(JSON, default=dict)
+    application_metadata = Column("metadata", JSON, default=dict)
     
     # Timestamps
     created_at = Column(DateTime, default=datetime.utcnow)
@@ -276,7 +276,7 @@ class MarketplaceActiveWork(Base):
     milestones_total = Column(Integer, nullable=True)
     
     # Additional data
-    metadata = Column(JSON, default=dict)
+    work_metadata = Column("metadata", JSON, default=dict)
     
     # Timestamps
     created_at = Column(DateTime, default=datetime.utcnow)

@@ -61,6 +61,7 @@ def upgrade() -> None:
         sa.Column('profession', sa.String(), nullable=True),
         sa.Column('expertise_domains', sa.JSON(), nullable=True),
         sa.Column('capabilities', sa.JSON(), nullable=True),
+        sa.Column('metadata', sa.JSON(), nullable=True),  # Python attribute: profile_metadata
         sa.Column('created_at', sa.DateTime(), nullable=True),
         sa.Column('updated_at', sa.DateTime(), nullable=True),
         sa.PrimaryKeyConstraint('id'),
@@ -78,7 +79,7 @@ def upgrade() -> None:
         sa.Column('freshness_score', sa.Float(), nullable=True),
         sa.Column('confidence_score', sa.Float(), nullable=True),
         sa.Column('last_updated', sa.DateTime(), nullable=True),
-        sa.Column('metadata', sa.JSON(), nullable=True),
+        sa.Column('metadata', sa.JSON(), nullable=True),  # Python attribute: profile_metadata (for EnigmaProfile)
         sa.Column('created_at', sa.DateTime(), nullable=True),
         sa.Column('updated_at', sa.DateTime(), nullable=True),
         sa.PrimaryKeyConstraint('id'),
@@ -97,7 +98,7 @@ def upgrade() -> None:
         sa.Column('progress_percentage', sa.Float(), nullable=True),
         sa.Column('started_at', sa.DateTime(), nullable=True),
         sa.Column('completed_at', sa.DateTime(), nullable=True),
-        sa.Column('metadata', sa.JSON(), nullable=True),
+        sa.Column('metadata', sa.JSON(), nullable=True),  # Python attribute: profile_metadata (for EnigmaProfile)
         sa.Column('created_at', sa.DateTime(), nullable=True),
         sa.Column('updated_at', sa.DateTime(), nullable=True),
         sa.PrimaryKeyConstraint('id'),
@@ -115,7 +116,7 @@ def upgrade() -> None:
         sa.Column('account_status', sa.String(), nullable=True),
         sa.Column('credits_available', sa.Integer(), nullable=True),
         sa.Column('last_verified', sa.DateTime(), nullable=True),
-        sa.Column('metadata', sa.JSON(), nullable=True),
+        sa.Column('metadata', sa.JSON(), nullable=True),  # Python attribute: profile_metadata (for EnigmaProfile)
         sa.Column('created_at', sa.DateTime(), nullable=True),
         sa.Column('updated_at', sa.DateTime(), nullable=True),
         sa.PrimaryKeyConstraint('id'),
@@ -149,6 +150,7 @@ def upgrade() -> None:
         sa.Column('severity', sa.String(), nullable=True),
         sa.Column('status', sa.String(), nullable=True),
         sa.Column('category', sa.String(), nullable=True),
+        sa.Column('metadata', sa.JSON(), nullable=True),  # Python attribute: issue_metadata
         sa.Column('created_at', sa.DateTime(), nullable=True),
         sa.Column('updated_at', sa.DateTime(), nullable=True),
         sa.PrimaryKeyConstraint('id'),
@@ -179,7 +181,7 @@ def upgrade() -> None:
         sa.Column('source', data_source_enum, nullable=True),
         sa.Column('confidence', sa.Float(), nullable=True),
         sa.Column('freshness', freshness_status_enum, nullable=True),
-        sa.Column('metadata', sa.JSON(), nullable=True),
+        sa.Column('metadata', sa.JSON(), nullable=True),  # Python attribute: account_metadata
         sa.Column('created_at', sa.DateTime(), nullable=True),
         sa.Column('updated_at', sa.DateTime(), nullable=True),
         sa.PrimaryKeyConstraint('id'),
@@ -208,8 +210,7 @@ def upgrade() -> None:
         sa.Column('posted_date', sa.DateTime(), nullable=True),
         sa.Column('deadline', sa.DateTime(), nullable=True),
         sa.Column('url', sa.String(), nullable=True),
-        sa.Column('platform_cost', sa.JSON(), nullable=True),
-        sa.Column('metadata', sa.JSON(), nullable=True),
+        sa.Column('metadata', sa.JSON(), nullable=True),  # Python attribute: job_metadata
         sa.Column('created_at', sa.DateTime(), nullable=True),
         sa.Column('updated_at', sa.DateTime(), nullable=True),
         sa.Column('synced_at', sa.DateTime(), nullable=True),
@@ -236,7 +237,7 @@ def upgrade() -> None:
         sa.Column('recommendations', sa.JSON(), nullable=True),
         sa.Column('assessed_at', sa.DateTime(), nullable=True),
         sa.Column('assessment_version', sa.String(), nullable=True),
-        sa.Column('metadata', sa.JSON(), nullable=True),
+        sa.Column('metadata', sa.JSON(), nullable=True),  # Python attribute: assessment_metadata
         sa.Column('created_at', sa.DateTime(), nullable=True),
         sa.Column('updated_at', sa.DateTime(), nullable=True),
         sa.PrimaryKeyConstraint('id'),
@@ -262,7 +263,7 @@ def upgrade() -> None:
         sa.Column('bid_amount', sa.Numeric(10, 2), nullable=True),
         sa.Column('currency', sa.String(), nullable=True),
         sa.Column('submitted_at', sa.DateTime(), nullable=True),
-        sa.Column('metadata', sa.JSON(), nullable=True),
+        sa.Column('metadata', sa.JSON(), nullable=True),  # Python attribute: application_metadata
         sa.Column('created_at', sa.DateTime(), nullable=True),
         sa.Column('updated_at', sa.DateTime(), nullable=True),
         sa.PrimaryKeyConstraint('id'),
@@ -292,7 +293,7 @@ def upgrade() -> None:
         sa.Column('progress_percentage', sa.Float(), nullable=True),
         sa.Column('milestones_completed', sa.Integer(), nullable=True),
         sa.Column('milestones_total', sa.Integer(), nullable=True),
-        sa.Column('metadata', sa.JSON(), nullable=True),
+        sa.Column('metadata', sa.JSON(), nullable=True),  # Python attribute: work_metadata
         sa.Column('created_at', sa.DateTime(), nullable=True),
         sa.Column('updated_at', sa.DateTime(), nullable=True),
         sa.PrimaryKeyConstraint('id'),

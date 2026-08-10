@@ -75,7 +75,7 @@ class EnigmaProfile(Base):
     target_languages = Column(JSON, default=list)
 
     # Metadata
-    metadata = Column(JSON, default=dict)
+    profile_metadata = Column("metadata", JSON, default=dict)
 
     # Relationships
     knowledge_progress = relationship("KnowledgeProgress", back_populates="profile", cascade="all, delete-orphan")
@@ -249,7 +249,7 @@ class Issue(Base):
     resolved_at = Column(DateTime)
     
     # Additional metadata
-    metadata = Column(JSON, default=dict)
+    issue_metadata = Column("metadata", JSON, default=dict)
     
     # Timestamps
     created_at = Column(DateTime, default=datetime.utcnow)

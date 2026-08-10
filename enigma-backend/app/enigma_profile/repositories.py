@@ -229,7 +229,7 @@ class DatabaseEnigmaProfileRepository(EnigmaProfileRepository):
             model.target_platforms = [p.value for p in profile.target_platforms]
             model.target_markets = profile.target_markets
             model.target_languages = profile.target_languages
-            model.metadata = profile.metadata
+            model.profile_metadata = profile.metadata
             model.updated_at = datetime.utcnow()
         else:
             # Create new
@@ -241,7 +241,7 @@ class DatabaseEnigmaProfileRepository(EnigmaProfileRepository):
                 target_platforms=[p.value for p in profile.target_platforms],
                 target_markets=profile.target_markets,
                 target_languages=profile.target_languages,
-                metadata=profile.metadata,
+                profile_metadata=profile.metadata,
             )
             self.db.add(model)
         
@@ -276,7 +276,7 @@ class DatabaseEnigmaProfileRepository(EnigmaProfileRepository):
             target_platforms=[MarketplacePlatform(p) for p in (model.target_platforms or [])],
             target_markets=model.target_markets or [],
             target_languages=model.target_languages or [],
-            metadata=model.metadata or {},
+            metadata=model.profile_metadata or {},
         )
 
 
@@ -735,7 +735,7 @@ class DatabaseIssueRepository(IssueRepository):
             model.impact = issue.impact
             model.required_action = issue.required_action
             model.resolved_at = datetime.fromisoformat(issue.resolved_at) if issue.resolved_at else None
-            model.metadata = issue.metadata
+            model.issue_metadata = issue.metadata
             model.updated_at = datetime.utcnow()
         else:
             # Create new
@@ -753,7 +753,7 @@ class DatabaseIssueRepository(IssueRepository):
                 required_action=issue.required_action,
                 timestamp=datetime.fromisoformat(issue.timestamp) if issue.timestamp else datetime.utcnow(),
                 resolved_at=datetime.fromisoformat(issue.resolved_at) if issue.resolved_at else None,
-                metadata=issue.metadata,
+                issue_metadata=issue.metadata,
             )
             self.db.add(model)
         
@@ -831,5 +831,5 @@ class DatabaseIssueRepository(IssueRepository):
             required_action=model.required_action,
             status=model.status,
             resolved_at=model.resolved_at.isoformat() if model.resolved_at else None,
-            metadata=model.metadata or {},
+            metadata=model.issue_metadata or {},
         )
