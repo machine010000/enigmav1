@@ -33,8 +33,15 @@ class UserResponse(BaseModel):
     email: str
     name: str
     plan: str
-    class Config:
-        from_attributes = True
+    
+    @classmethod
+    def from_user(cls, user: User) -> "UserResponse":
+        return cls(
+            id=str(user.id),
+            email=user.email,
+            name=user.name,
+            plan=user.plan
+        )
 
 class Token(BaseModel):
     access_token: str
@@ -102,4 +109,4 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends(), db: AsyncSessi
 
 @router.get("/me", response_model=UserResponse)
 async def get_me(current_user: User = Depends(get_current_user)):
-    return current_user
+    return UserResponse.from_user(current_user)
