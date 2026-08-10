@@ -65,6 +65,7 @@ async def lifespan(app: FastAPI):
     print(f"Environment: {settings.ENVIRONMENT}")
     print("✅ Application startup complete - ready to serve requests")
     print(f"FastAPI app routes: {[route.path for route in app.routes]}")
+    print(f"Listening on: 0.0.0.0:{os.getenv('PORT', '8000')}")
     yield
     print("ENIGMA shutting down...")
 
