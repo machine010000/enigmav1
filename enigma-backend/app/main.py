@@ -9,14 +9,19 @@ from app.core.health import perform_startup_health_check, get_health_status
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     import os
+    import sys
     print("ENIGMA is initializing...")
+    print(f"Python version: {sys.version}")
     print(f"PORT environment variable: {os.getenv('PORT', 'NOT SET')}")
     print(f"API_PORT from settings: {settings.API_PORT}")
+    print(f"API_HOST from settings: {settings.API_HOST}")
+    print(f"ENVIRONMENT: {settings.ENVIRONMENT}")
 
     # Perform startup health check
     print("Running startup health checks...")
     health_result = await perform_startup_health_check()
 
+    print(f"Health check status: {health_result['status']}")
     if health_result["status"] == "unhealthy":
         print("❌ Startup health check failed:")
         for error in health_result["errors"]:
@@ -53,10 +58,13 @@ async def lifespan(app: FastAPI):
         print(f"EventBus ready — {event_bus.connected_clients} live WebSocket clients")
     except Exception as e:
         print(f"⚠️  Warning: Failed to initialize some components: {e}")
+        import traceback
+        traceback.print_exc()
         print("Application continuing with limited functionality")
 
     print(f"Environment: {settings.ENVIRONMENT}")
     print("✅ Application startup complete - ready to serve requests")
+    print(f"FastAPI app routes: {[route.path for route in app.routes]}")
     yield
     print("ENIGMA shutting down...")
 

@@ -65,25 +65,30 @@ class HealthCheck:
     def check_essential_secrets(self) -> bool:
         """Check essential secrets are set."""
         self.checks.append("Essential secrets validation")
-        
+
         missing = []
-        
+        optional_missing = []
+
         if not settings.SECRET_KEY:
             missing.append("SECRET_KEY")
-        
+
         if not settings.DATABASE_URL:
             missing.append("DATABASE_URL")
-        
+
+        # NVIDIA_API_KEY is optional - AI provider is non-blocking
         if not settings.NVIDIA_API_KEY:
-            missing.append("NVIDIA_API_KEY")
-        
+            optional_missing.append("NVIDIA_API_KEY")
+
         if missing:
             if is_production():
                 self.errors.append(f"Missing essential secrets: {', '.join(missing)}")
                 return False
             else:
-                self.warnings.append(f"Missing optional secrets: {', '.join(missing)}")
-        
+                self.warnings.append(f"Missing essential secrets: {', '.join(missing)}")
+
+        if optional_missing:
+            self.warnings.append(f"Missing optional secrets: {', '.join(optional_missing)}")
+
         return True
     
     def check_no_localhost_leakage(self) -> bool:
