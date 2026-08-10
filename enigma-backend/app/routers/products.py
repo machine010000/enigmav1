@@ -26,8 +26,16 @@ class ProductResponse(BaseModel):
     category: str
     status: str
     created_at: Optional[str] = None
-    class Config:
-        from_attributes = True
+    
+    @classmethod
+    def from_product(cls, product: Product) -> "ProductResponse":
+        return cls(
+            id=str(product.id),
+            name=product.name,
+            category=product.category,
+            status=product.status,
+            created_at=product.created_at.isoformat() if product.created_at else None
+        )
 
 class OnboardingAnswers(BaseModel):
     answers: dict
@@ -38,12 +46,13 @@ async def create_product(data: ProductCreate, current_user: User = Depends(get_c
     db.add(product)
     await db.commit()
     await db.refresh(product)
-    return product
+    return ProductResponse.from_product(product)
 
 @router.get("", response_model=List[ProductResponse])
 async def list_products(current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(Product).where(Product.user_id == current_user.id).order_by(desc(Product.created_at)))
-    return result.scalars().all()
+    products = result.scalars().all()
+    return [ProductResponse.from_product(p) for p in products]
 
 @router.get("/{product_id}")
 async def get_product(product_id: str, current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
@@ -51,7 +60,7 @@ async def get_product(product_id: str, current_user: User = Depends(get_current_
     product = result.scalar_one_or_none()
     if not product:
         raise HTTPException(status_code=404, detail="Product not found")
-    return product
+    return ProductResponse.from_product(product)
 
 @router.get("/{product_id}/onboarding")
 async def get_onboarding_questions(product_id: str, current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
