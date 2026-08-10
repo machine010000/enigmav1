@@ -8,7 +8,10 @@ from app.core.health import perform_startup_health_check, get_health_status
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    import os
     print("ENIGMA is initializing...")
+    print(f"PORT environment variable: {os.getenv('PORT', 'NOT SET')}")
+    print(f"API_PORT from settings: {settings.API_PORT}")
 
     # Perform startup health check
     print("Running startup health checks...")
@@ -53,6 +56,7 @@ async def lifespan(app: FastAPI):
         print("Application continuing with limited functionality")
 
     print(f"Environment: {settings.ENVIRONMENT}")
+    print("✅ Application startup complete - ready to serve requests")
     yield
     print("ENIGMA shutting down...")
 
