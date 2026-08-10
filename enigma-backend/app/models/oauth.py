@@ -97,7 +97,7 @@ class OAuthState(Base):
     consumed_at = Column(DateTime, nullable=True)
     
     # Additional data
-    metadata = Column(Text, nullable=True)  # JSON for additional data
+    state_metadata = Column("metadata", Text, nullable=True)  # JSON for additional data
     
     # Timestamps
     created_at = Column(DateTime, default=datetime.utcnow)

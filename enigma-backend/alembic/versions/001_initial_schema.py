@@ -342,7 +342,7 @@ def upgrade() -> None:
         sa.Column('expires_at', sa.DateTime(), nullable=False),
         sa.Column('is_consumed', sa.Boolean(), nullable=True),
         sa.Column('consumed_at', sa.DateTime(), nullable=True),
-        sa.Column('metadata', sa.Text(), nullable=True),
+        sa.Column('metadata', sa.Text(), nullable=True),  # Python attribute: state_metadata
         sa.Column('created_at', sa.DateTime(), nullable=True),
         sa.PrimaryKeyConstraint('id'),
         sa.UniqueConstraint('state_id')
