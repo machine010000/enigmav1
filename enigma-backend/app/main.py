@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 
@@ -83,6 +83,14 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Request logging middleware for diagnostics
+@app.middleware("http")
+async def log_requests(request: Request, call_next):
+    print(f"REQUEST {request.method} {request.url.path}")
+    response = await call_next(request)
+    print(f"RESPONSE {response.status_code} {request.method} {request.url.path}")
+    return response
 
 @app.get("/")
 async def root():
