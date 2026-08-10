@@ -1,4 +1,7 @@
-"""Mock Marketplace Adapter for testing."""
+"""Mock Marketplace Adapter for testing.
+
+TASK-051: Updated to implement new contract with read-only mode.
+"""
 from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional
 
@@ -18,15 +21,27 @@ from app.marketplace.contracts import (
 
 
 class MockMarketplaceAdapter(MarketplaceAdapter):
-    """Mock implementation of MarketplaceAdapter."""
+    """Mock implementation of MarketplaceAdapter.
 
-    def __init__(self) -> None:
+    TASK-051: Read-only by default, no automatic application submission.
+    """
+
+    def __init__(self, read_only: bool = True, auto_apply_enabled: bool = False) -> None:
+        """
+        Initialize mock adapter.
+        
+        Args:
+            read_only: Whether adapter is in read-only mode (TASK-051: default True)
+            auto_apply_enabled: Whether auto-apply is enabled (TASK-051: default False)
+        """
         self._authenticated = False
         self._account: Optional[MarketplaceAccount] = None
         self._jobs: Dict[str, NormalizedJob] = {}
         self._applications: Dict[str, NormalizedApplication] = {}
         self._job_counter = 0
         self._application_counter = 0
+        self._read_only = read_only
+        self._auto_apply_enabled = auto_apply_enabled
 
     @property
     def platform(self) -> MarketplacePlatform:
@@ -42,6 +57,32 @@ class MockMarketplaceAdapter(MarketplaceAdapter):
             PlatformCapability.CREDIT_MANAGEMENT,
             PlatformCapability.ACCOUNT_STATUS_CHECK,
         ]
+
+    @property
+    def is_read_only(self) -> bool:
+        """Get read-only mode (TASK-051)."""
+        return self._read_only
+
+    @property
+    def auto_apply_enabled(self) -> bool:
+        """Get auto-apply enabled status (TASK-051)."""
+        return self._auto_apply_enabled
+
+    def enable_read_only(self) -> None:
+        """Enable read-only mode."""
+        self._read_only = True
+
+    def disable_read_only(self) -> None:
+        """Disable read-only mode."""
+        self._read_only = False
+
+    def enable_auto_apply(self) -> None:
+        """Enable auto-apply."""
+        self._auto_apply_enabled = True
+
+    def disable_auto_apply(self) -> None:
+        """Disable auto-apply."""
+        self._auto_apply_enabled = False
 
     async def authenticate(self, credentials: Dict[str, Any]) -> MarketplaceAccount:
         self._authenticated = True
@@ -62,11 +103,23 @@ class MockMarketplaceAdapter(MarketplaceAdapter):
         )
         return self._account
 
-    async def get_account_status(self) -> MarketplaceAccount:
+    async def refresh_authentication(self) -> MarketplaceAccount:
+        """Refresh authentication (TASK-051)."""
         if not self._account:
             raise RuntimeError("Not authenticated")
         self._account.last_synced_at = datetime.utcnow()
         return self._account
+
+    async def get_account_state(self) -> MarketplaceAccount:
+        """Get account state (TASK-051)."""
+        if not self._account:
+            raise RuntimeError("Not authenticated")
+        self._account.last_synced_at = datetime.utcnow()
+        return self._account
+
+    async def get_account_status(self) -> MarketplaceAccount:
+        """Get account status (legacy method)."""
+        return await self.get_account_state()
 
     async def discover_jobs(
         self,
@@ -112,12 +165,62 @@ class MockMarketplaceAdapter(MarketplaceAdapter):
             raise ValueError(f"Job {platform_job_id} not found")
         return job
 
+    async def get_application_requirements(self, platform_job_id: str) -> Dict[str, Any]:
+        """Get application requirements (TASK-051)."""
+        if not self._authenticated:
+            raise RuntimeError("Not authenticated")
+        job = self._jobs.get(platform_job_id)
+        if not job:
+            # Return default requirements if job not found (for testing)
+            return {
+                "skills_required": [],
+                "attachments_required": [],
+                "cover_letter_required": True,
+                "portfolio_required": False,
+            }
+        return {
+            "skills_required": job.skills_required,
+            "attachments_required": [],
+            "cover_letter_required": True,
+            "portfolio_required": False,
+        }
+
+    async def get_application_cost(self, platform_job_id: str) -> PlatformCost:
+        """Get application cost (TASK-051)."""
+        if not self._authenticated:
+            raise RuntimeError("Not authenticated")
+        job = self._jobs.get(platform_job_id)
+        if not job:
+            raise ValueError(f"Job {platform_job_id} not found")
+        return job.platform_cost or PlatformCost(
+            credit_type=CreditType.CONNECTS,
+            amount=2.0,
+            currency="USD",
+        )
+
     async def submit_application(
         self,
         application: NormalizedApplication,
     ) -> NormalizedApplication:
+        """
+        Submit application with gating (TASK-051).
+        
+        Raises:
+            RuntimeError: If read-only or auto_apply disabled
+        """
+        if self._read_only:
+            raise RuntimeError(
+                "Cannot submit application: mock adapter is in read-only mode"
+            )
+        
+        if not self._auto_apply_enabled:
+            raise RuntimeError(
+                "Cannot submit application: auto-apply is disabled"
+            )
+        
         if not self._authenticated:
             raise RuntimeError("Not authenticated")
+        
         self._application_counter += 1
         platform_application_id = f"mock_app_{self._application_counter}"
         application.platform_application_id = platform_application_id
@@ -136,18 +239,6 @@ class MockMarketplaceAdapter(MarketplaceAdapter):
         if not application:
             raise ValueError(f"Application {platform_application_id} not found")
         return application.status
-
-    async def get_platform_cost(self, platform_job_id: str) -> PlatformCost:
-        if not self._authenticated:
-            raise RuntimeError("Not authenticated")
-        job = self._jobs.get(platform_job_id)
-        if not job:
-            raise ValueError(f"Job {platform_job_id} not found")
-        return job.platform_cost or PlatformCost(
-            credit_type=CreditType.CONNECTS,
-            amount=2.0,
-            currency="USD",
-        )
 
     async def check_limits(self) -> PlatformLimits:
         if not self._account:

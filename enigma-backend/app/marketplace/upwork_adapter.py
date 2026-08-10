@@ -32,6 +32,7 @@ from app.marketplace.contracts import (
     CreditType,
     PlatformError,
 )
+from app.marketplace.upwork_economics import UpworkEconomicsEngine
 
 
 @dataclass
@@ -73,6 +74,7 @@ class UpworkAdapter(MarketplaceAdapter):
         self._authenticated = False
         self._account: Optional[MarketplaceAccount] = None
         self._client = httpx.AsyncClient(timeout=30.0)
+        self._economics_engine = UpworkEconomicsEngine()
 
     @property
     def platform(self) -> MarketplacePlatform:
@@ -499,6 +501,28 @@ class UpworkAdapter(MarketplaceAdapter):
         """Check current platform limits."""
         account = await self.get_account_status()
         return account.limits
+
+    async def get_economics_engine(self) -> UpworkEconomicsEngine:
+        """
+        Get the economics engine for Upwork.
+
+        Returns:
+            UpworkEconomicsEngine instance with current account data
+        """
+        account = await self.get_account_status()
+        
+        # Update economics engine with current account data
+        account_data = {
+            "connects_available": account.limits.credits_available,
+            "connects_total": account.limits.credits_total,
+            "daily_applications_used": account.metadata.get("daily_applications_used", 0),
+            "daily_application_limit": account.limits.daily_application_limit or 50,
+            "monthly_applications_used": account.metadata.get("monthly_applications_used", 0),
+            "monthly_application_limit": account.limits.monthly_application_limit or 200,
+        }
+        
+        self._economics_engine.update_account_data(account_data)
+        return self._economics_engine
 
     async def _make_graphql_request(
         self,

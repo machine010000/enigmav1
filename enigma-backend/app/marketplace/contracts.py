@@ -22,6 +22,8 @@ class MarketplacePlatform(str, Enum):
     UPWORK = "upwork"
     FIVERR = "fiverr"
     FREELANCER = "freelancer"
+    MOSTAQL = "mostaql"
+    KHAMSAT = "khamsat"
     PEOPLE_PER_HOUR = "people_per_hour"
     GURU = "guru"
 
@@ -161,6 +163,8 @@ class MarketplaceAdapter(ABC):
     
     Each marketplace (Upwork, Fiverr, Freelancer, etc.) implements
     this interface to provide normalized data to the Enigma core system.
+    
+    TASK-051: Read-only by default, no automatic application submission.
     """
 
     @property
@@ -173,6 +177,18 @@ class MarketplaceAdapter(ABC):
     @abstractmethod
     def capabilities(self) -> List[PlatformCapability]:
         """Get the capabilities supported by this adapter."""
+        pass
+
+    @property
+    @abstractmethod
+    def is_read_only(self) -> bool:
+        """Whether this adapter is in read-only mode (TASK-051: default True)."""
+        pass
+
+    @property
+    @abstractmethod
+    def auto_apply_enabled(self) -> bool:
+        """Whether automatic application submission is enabled (TASK-051: default False)."""
         pass
 
     @abstractmethod
@@ -189,12 +205,22 @@ class MarketplaceAdapter(ABC):
         pass
 
     @abstractmethod
-    async def get_account_status(self) -> MarketplaceAccount:
+    async def refresh_authentication(self) -> MarketplaceAccount:
         """
-        Get current account status.
+        Refresh authentication tokens.
         
         Returns:
-            MarketplaceAccount with current status and limits
+            MarketplaceAccount with updated authentication status
+        """
+        pass
+
+    @abstractmethod
+    async def get_account_state(self) -> MarketplaceAccount:
+        """
+        Get current account state (TASK-051: real API integration).
+        
+        Returns:
+            MarketplaceAccount with current status, limits, and balance
         """
         pass
 
@@ -206,7 +232,7 @@ class MarketplaceAdapter(ABC):
         limit: int = 50,
     ) -> List[NormalizedJob]:
         """
-        Discover jobs on the marketplace.
+        Discover jobs on the marketplace (TASK-051: read-only).
         
         Args:
             query: Search query
@@ -221,7 +247,7 @@ class MarketplaceAdapter(ABC):
     @abstractmethod
     async def get_job(self, platform_job_id: str) -> NormalizedJob:
         """
-        Get a specific job from the marketplace.
+        Get a specific job from the marketplace (TASK-051: read-only).
         
         Args:
             platform_job_id: Platform-specific job ID
@@ -232,41 +258,22 @@ class MarketplaceAdapter(ABC):
         pass
 
     @abstractmethod
-    async def submit_application(
-        self,
-        application: NormalizedApplication,
-    ) -> NormalizedApplication:
+    async def get_application_requirements(self, platform_job_id: str) -> Dict[str, Any]:
         """
-        Submit an application to the marketplace.
+        Get requirements for applying to a job (TASK-051: read-only).
         
         Args:
-            application: Normalized application data
+            platform_job_id: Platform-specific job ID
             
         Returns:
-            Normalized application with platform_application_id and status
+            Application requirements (skills, attachments, etc.)
         """
         pass
 
     @abstractmethod
-    async def get_application_status(
-        self,
-        platform_application_id: str,
-    ) -> ApplicationStatus:
+    async def get_application_cost(self, platform_job_id: str) -> PlatformCost:
         """
-        Get the status of an application.
-        
-        Args:
-            platform_application_id: Platform-specific application ID
-            
-        Returns:
-            Application status
-        """
-        pass
-
-    @abstractmethod
-    async def get_platform_cost(self, platform_job_id: str) -> PlatformCost:
-        """
-        Get the cost to apply to a job.
+        Get the cost to apply to a job (TASK-051: read-only).
         
         Args:
             platform_job_id: Platform-specific job ID
@@ -277,9 +284,44 @@ class MarketplaceAdapter(ABC):
         pass
 
     @abstractmethod
+    async def submit_application(
+        self,
+        application: NormalizedApplication,
+    ) -> NormalizedApplication:
+        """
+        Submit an application to the marketplace (TASK-051: gated, disabled by default).
+        
+        Args:
+            application: Normalized application data
+            
+        Returns:
+            Normalized application with platform_application_id and status
+            
+        Raises:
+            RuntimeError: If adapter is in read-only mode or auto_apply is disabled
+        """
+        pass
+
+    @abstractmethod
+    async def get_application_status(
+        self,
+        platform_application_id: str,
+    ) -> ApplicationStatus:
+        """
+        Get the status of an application (TASK-051: read-only).
+        
+        Args:
+            platform_application_id: Platform-specific application ID
+            
+        Returns:
+            Application status
+        """
+        pass
+
+    @abstractmethod
     async def check_limits(self) -> PlatformLimits:
         """
-        Check current platform limits.
+        Check current platform limits (TASK-051: real API integration).
         
         Returns:
             Current platform limits

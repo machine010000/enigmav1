@@ -14,12 +14,10 @@
 
 import { apiCall, showToast } from './api.js';
 import { getCurrentProfile } from './profile.js';
+import { USE_MOCK_DATA, IS_PRODUCTION } from './config.js';
 
 let freelancingData = null;
 let isUsingMockData = false;
-
-// DEVELOPMENT ONLY: Set to false for production
-const USE_MOCK_DATA = false;
 
 /**
  * Load freelancing workspace data from backend
@@ -37,7 +35,7 @@ export async function loadFreelancing() {
         console.error('Failed to load freelancing data:', error);
         
         // PRODUCTION: Do not use mock data - show error
-        if (!USE_MOCK_DATA) {
+        if (IS_PRODUCTION || !USE_MOCK_DATA) {
             showToast('Failed to load freelancing data. Backend may be unavailable.', 'error');
             renderFreelancingError();
             return null;
@@ -74,6 +72,31 @@ export async function loadPlatforms() {
         const mockPlatforms = getMockPlatforms();
         renderPlatforms(mockPlatforms);
         return mockPlatforms;
+    }
+}
+
+/**
+ * Load marketplace account economics from backend
+ * @param {string} platform - Platform name (upwork, freelancer, mostaql, fiverr)
+ * @returns {Promise<Object>} Marketplace account economics
+ */
+export async function loadMarketplaceAccountEconomics(platform) {
+    try {
+        // Real API endpoint
+        const economics = await apiCall(`/api/freelancing/platforms/${platform}/economics`);
+        renderMarketplaceAccountEconomics(economics);
+        return economics;
+    } catch (error) {
+        console.error('Failed to load marketplace economics:', error);
+        
+        if (!USE_MOCK_DATA) {
+            showToast('Failed to load marketplace economics. Backend may be unavailable.', 'error');
+            return null;
+        }
+        
+        const mockEconomics = getMockMarketplaceEconomics(platform);
+        renderMarketplaceAccountEconomics(mockEconomics);
+        return mockEconomics;
     }
 }
 
@@ -377,8 +400,225 @@ function renderPlatforms(platforms) {
                 <div>Credits: <span class="text-gray-300">${platform.credits_available || 'N/A'}</span></div>
                 <div>Availability: <span class="text-gray-300">${platform.availability}</span></div>
             </div>
+            <button onclick="loadMarketplaceAccountEconomics('${platform.id}')" class="btn-secondary text-xs py-1 px-3 mt-3">
+                <i class="fas fa-chart-line ml-1"></i>View Economics
+            </button>
         </div>
     `).join('');
+}
+
+/**
+ * Render marketplace account economics
+ * @param {Object} economics - Marketplace account economics
+ */
+function renderMarketplaceAccountEconomics(economics) {
+    const economicsEl = document.getElementById('marketplace-economics-display');
+    if (!economicsEl) return;
+    
+    if (!economics) {
+        economicsEl.innerHTML = '<div class="text-gray-500 text-sm">No economics data available</div>';
+        return;
+    }
+    
+    const balance = economics.account_balance || {};
+    const cost = economics.application_cost || {};
+    const assessment = economics.assessment || {};
+    
+    economicsEl.innerHTML = `
+        <div class="p-4 rounded-lg bg-dark-800 border border-gray-700">
+            <div class="flex items-center justify-between mb-4">
+                <h4 class="font-bold">${economics.platform.toUpperCase()} Account</h4>
+                <span class="tag tag-${getDecisionColor(economics.decision)} text-xs">${economics.decision.replace('_', ' ')}</span>
+            </div>
+            
+            <!-- Account Balance -->
+            <div class="mb-4">
+                <p class="text-sm text-gray-400 mb-2">Account Balance</p>
+                <div class="flex items-center justify-between p-3 rounded bg-dark-900">
+                    <div>
+                        <p class="text-2xl font-bold text-brand-purple">${balance.available || 0}</p>
+                        <p class="text-xs text-gray-400">${balance.unit || 'N/A'} available</p>
+                    </div>
+                    <div class="text-right">
+                        <p class="text-sm text-gray-300">${balance.total || 0} total</p>
+                        <p class="text-xs text-gray-400">${balance.currency || 'USD'}</p>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- This Job Cost -->
+            <div class="mb-4">
+                <p class="text-sm text-gray-400 mb-2">This Job</p>
+                <div class="flex items-center justify-between p-3 rounded bg-dark-900">
+                    <div>
+                        <p class="text-2xl font-bold ${cost.is_free ? 'text-green-400' : 'text-brand-purple'}">${cost.amount || 0}</p>
+                        <p class="text-xs text-gray-400">${cost.unit || 'N/A'} required</p>
+                    </div>
+                    <div class="text-right">
+                        <p class="text-sm text-gray-300">${cost.monetary_value ? '$' + cost.monetary_value.toFixed(2) : 'Free'}</p>
+                        <p class="text-xs text-gray-400">${cost.currency || 'USD'}</p>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- After Application -->
+            <div class="mb-4">
+                <p class="text-sm text-gray-400 mb-2">After Application</p>
+                <div class="flex items-center justify-between p-3 rounded bg-dark-900">
+                    <div>
+                        <p class="text-2xl font-bold text-brand-blue">${economics.remaining_balance_after_apply || balance.available || 0}</p>
+                        <p class="text-xs text-gray-400">remaining balance</p>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Economic Assessment -->
+            ${assessment.economic_value !== null && assessment.economic_value !== undefined ? `
+                <div class="mb-4">
+                    <p class="text-sm text-gray-400 mb-2">Economic Assessment</p>
+                    <div class="p-3 rounded bg-dark-900">
+                        <div class="flex items-center justify-between mb-2">
+                            <span class="text-sm text-gray-400">Expected Revenue:</span>
+                            <span class="text-sm font-semibold text-gray-300">${assessment.expected_revenue ? '$' + assessment.expected_revenue.toFixed(2) : 'N/A'}</span>
+                        </div>
+                        <div class="flex items-center justify-between mb-2">
+                            <span class="text-sm text-gray-400">Win Probability:</span>
+                            <span class="text-sm font-semibold text-gray-300">${assessment.win_probability ? (assessment.win_probability * 100).toFixed(0) + '%' : 'N/A'}</span>
+                        </div>
+                        <div class="flex items-center justify-between mb-2">
+                            <span class="text-sm text-gray-400">Economic Value:</span>
+                            <span class="text-sm font-semibold ${assessment.economic_value > 0 ? 'text-green-400' : 'text-red-400'}">${assessment.economic_value > 0 ? '+' : ''}$${assessment.economic_value.toFixed(2)}</span>
+                        </div>
+                    </div>
+                </div>
+            ` : ''}
+            
+            <!-- Decision Reason -->
+            <div class="p-3 rounded bg-dark-900">
+                <p class="text-sm text-gray-400 mb-1">Decision:</p>
+                <p class="text-sm text-gray-300">${economics.decision_reason || 'No reason provided'}</p>
+            </div>
+            
+            <!-- Status Indicators -->
+            <div class="flex gap-2 mt-4">
+                <span class="tag ${economics.can_afford ? 'tag-green' : 'tag-red'} text-xs">
+                    ${economics.can_afford ? '✓ Can Afford' : '✗ Cannot Afford'}
+                </span>
+                <span class="tag ${economics.has_quota ? 'tag-green' : 'tag-red'} text-xs">
+                    ${economics.has_quota ? '✓ Has Quota' : '✗ No Quota'}
+                </span>
+            </div>
+        </div>
+    `;
+}
+
+function getDecisionColor(decision) {
+    const colors = {
+        'apply': 'green',
+        'dont_apply': 'red',
+        'insufficient_balance': 'red',
+        'insufficient_quota': 'red',
+        'requires_money': 'red',
+        'requires_account_setup': 'yellow',
+        'not_applicable': 'gray',
+        'wait': 'yellow',
+        'need_information': 'orange'
+    };
+    return colors[decision] || 'gray';
+}
+
+/**
+ * Load marketplace economics dashboard
+ * @returns {Promise<Array>} List of platform economics
+ */
+export async function loadMarketplaceEconomicsDashboard() {
+    try {
+        // Real API endpoint
+        const economics = await apiCall('/api/freelancing/platforms/economics');
+        renderMarketplaceEconomicsDashboard(economics);
+        return economics;
+    } catch (error) {
+        console.error('Failed to load marketplace economics dashboard:', error);
+        
+        if (!USE_MOCK_DATA) {
+            showToast('Failed to load marketplace economics. Backend may be unavailable.', 'error');
+            return null;
+        }
+        
+        const mockEconomics = getMockMarketplaceEconomicsDashboard();
+        renderMarketplaceEconomicsDashboard(mockEconomics);
+        return mockEconomics;
+    }
+}
+
+/**
+ * Render marketplace economics dashboard
+ * @param {Array} economics - List of platform economics
+ */
+function renderMarketplaceEconomicsDashboard(economics) {
+    const dashboardEl = document.getElementById('marketplace-economics-dashboard');
+    if (!dashboardEl) return;
+    
+    if (!economics || economics.length === 0) {
+        dashboardEl.innerHTML = '<div class="text-gray-500 text-sm">No economics data available</div>';
+        return;
+    }
+    
+    dashboardEl.innerHTML = `
+        <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+                <thead>
+                    <tr class="border-b border-gray-700">
+                        <th class="text-left py-2 px-3 text-gray-400">Platform</th>
+                        <th class="text-left py-2 px-3 text-gray-400">Application Model</th>
+                        <th class="text-left py-2 px-3 text-gray-400">Cost</th>
+                        <th class="text-left py-2 px-3 text-gray-400">Status</th>
+                        <th class="text-left py-2 px-3 text-gray-400">Last Verified</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${economics.map(econ => `
+                        <tr class="border-b border-gray-800">
+                            <td class="py-2 px-3 font-semibold">${econ.platform}</td>
+                            <td class="py-2 px-3">
+                                <span class="tag tag-${getApplicationModelColor(econ.application_model)} text-xs">
+                                    ${econ.application_model}
+                                </span>
+                            </td>
+                            <td class="py-2 px-3 text-gray-400">${econ.cost_display || 'N/A'}</td>
+                            <td class="py-2 px-3">
+                                <span class="tag tag-${getVerificationStatusColor(econ.verification_status)} text-xs">
+                                    ${econ.verification_status}
+                                </span>
+                            </td>
+                            <td class="py-2 px-3 text-gray-400 text-xs">${econ.last_verified || 'N/A'}</td>
+                        </tr>
+                    `).join('')}
+                </tbody>
+            </table>
+        </div>
+    `;
+}
+
+function getApplicationModelColor(model) {
+    const colors = {
+        'credit_based': 'blue',
+        'fee_based': 'purple',
+        'free': 'green',
+        'mixed': 'yellow',
+        'no_direct_application': 'gray',
+        'unknown': 'orange'
+    };
+    return colors[model] || 'gray';
+}
+
+function getVerificationStatusColor(status) {
+    const colors = {
+        'verified': 'green',
+        'unknown': 'orange',
+        'not_applicable': 'gray'
+    };
+    return colors[status] || 'gray';
 }
 
 /**
@@ -904,10 +1144,135 @@ function getMockApplications() {
             job_title: 'Content Strategy for SaaS',
             platform: 'Upwork',
             status: 'DRAFT',
-            submitted_at: null,
-            proposal_status: 'DRAFT'
         }
     ];
+}
+
+function getMockMarketplaceEconomics(platform) {
+    const platformData = {
+        'upwork': {
+            platform: 'upwork',
+            decision: 'apply',
+            decision_reason: 'Positive economic value',
+            can_afford: true,
+            has_quota: true,
+            meets_wallet_requirements: true,
+            account_balance: {
+                unit: 'connects',
+                available: 42,
+                total: 80,
+                currency: 'USD',
+                monetary_value: 6.30
+            },
+            application_cost: {
+                unit: 'connects',
+                amount: 18,
+                currency: 'USD',
+                monetary_value: 2.70,
+                is_free: false
+            },
+            remaining_balance_after_apply: 24,
+            assessment: {
+                expected_revenue: 500,
+                win_probability: 0.35,
+                execution_readiness: 0.85,
+                evidence_strength: 0.72,
+                economic_value: 172.30
+            }
+        },
+        'freelancer': {
+            platform: 'freelancer',
+            decision: 'apply',
+            decision_reason: 'Positive economic value',
+            can_afford: true,
+            has_quota: true,
+            meets_wallet_requirements: true,
+            account_balance: {
+                unit: 'bids',
+                available: 25,
+                total: 50,
+                currency: 'USD',
+                monetary_value: 2.50
+            },
+            application_cost: {
+                unit: 'bids',
+                amount: 1,
+                currency: 'USD',
+                monetary_value: 0.10,
+                is_free: false
+            },
+            remaining_balance_after_apply: 24,
+            assessment: {
+                expected_revenue: 300,
+                win_probability: 0.40,
+                execution_readiness: 0.80,
+                evidence_strength: 0.68,
+                economic_value: 119.90
+            }
+        },
+        'mostaql': {
+            platform: 'mostaql',
+            decision: 'insufficient_quota',
+            decision_reason: 'Offer quota exhausted',
+            can_afford: true,
+            has_quota: false,
+            meets_wallet_requirements: true,
+            account_balance: {
+                unit: 'offers',
+                available: 0,
+                total: 20,
+                currency: 'USD',
+                monetary_value: 0.00
+            },
+            application_cost: {
+                unit: 'offers',
+                amount: 1,
+                currency: 'USD',
+                monetary_value: 0.15,
+                is_free: false
+            },
+            remaining_balance_after_apply: 0,
+            assessment: {
+                expected_revenue: 200,
+                win_probability: 0.30,
+                execution_readiness: 0.75,
+                evidence_strength: 0.60,
+                economic_value: 59.85
+            }
+        },
+        'fiverr': {
+            platform: 'fiverr',
+            decision: 'apply',
+            decision_reason: 'Positive economic value (gig economy)',
+            can_afford: true,
+            has_quota: true,
+            meets_wallet_requirements: true,
+            account_balance: {
+                unit: 'none',
+                available: 150.00,
+                total: 150.00,
+                currency: 'USD',
+                monetary_value: 150.00
+            },
+            application_cost: {
+                unit: 'none',
+                amount: 0,
+                currency: 'USD',
+                monetary_value: 0.00,
+                is_free: true
+            },
+            remaining_balance_after_apply: 150.00,
+            assessment: {
+                expected_revenue: 100,
+                win_probability: 0.50,
+                execution_readiness: 0.90,
+                evidence_strength: 0.85,
+                economic_value: 50.00
+            }
+        }
+    };
+    
+    return platformData[platform] || platformData['upwork'];
 }
 
 function getMockActiveWork() {

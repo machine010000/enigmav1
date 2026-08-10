@@ -15,10 +15,34 @@ from app.models.research import ResearchSession, ResearchSource
 from app.models.strategy import Strategy, ExecutionPlan, Task
 from app.models.analytics import ProductAnalytics, LearningFingerprint
 from app.models.execution import WorkerExecution, WorkerEventLog
+from app.models.enigma_profile import (
+    EnigmaProfile,
+    KnowledgeProgress,
+    TrainingItem,
+    PlatformReadiness,
+    DevelopmentPriority,
+    Issue,
+)
+from app.models.marketplace import (
+    MarketplaceAccountState,
+    MarketplaceJob,
+    MarketplaceJobAssessment,
+    MarketplaceApplication,
+    MarketplaceActiveWork,
+)
+from app.models.oauth import (
+    OAuthToken,
+    OAuthState,
+)
 
 __all__ = [
     "User", "Product", "MasterKnowledge", "OnboardingQuestion", "Decision",
     "ResearchSession", "ResearchSource", "Strategy", "ExecutionPlan", "Task",
     "ProductAnalytics", "LearningFingerprint",
     "WorkerExecution", "WorkerEventLog",
+    "EnigmaProfile", "KnowledgeProgress", "TrainingItem", "PlatformReadiness",
+    "DevelopmentPriority", "Issue",
+    "MarketplaceAccountState", "MarketplaceJob", "MarketplaceJobAssessment",
+    "MarketplaceApplication", "MarketplaceActiveWork",
+    "OAuthToken", "OAuthState",
 ]

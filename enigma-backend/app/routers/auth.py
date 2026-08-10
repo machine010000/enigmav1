@@ -1,5 +1,6 @@
 from datetime import datetime, timedelta
 from typing import Optional
+import hashlib
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from jose import JWTError, jwt
@@ -34,11 +35,44 @@ class Token(BaseModel):
     access_token: str
     token_type: str
 
-def verify_password(plain_password, hashed_password):
-    return pwd_context.verify(plain_password, hashed_password)
+def _prehash_password(password: str) -> str:
+    """
+    Pre-hash password with SHA-256 to handle bcrypt's 72-byte limit.
+    
+    This preserves full password entropy while staying within bcrypt's constraints.
+    SHA-256 produces a 32-byte (64 hex character) hash, well within bcrypt's limit.
+    """
+    return hashlib.sha256(password.encode('utf-8')).hexdigest()
 
-def get_password_hash(password):
-    return pwd_context.hash(password)
+def verify_password(plain_password: str, hashed_password: str) -> bool:
+    """
+    Verify password against hash.
+    
+    Supports both:
+    1. New method: SHA-256 pre-hash + bcrypt (for passwords > 72 bytes)
+    2. Old method: Direct bcrypt (for backward compatibility with existing users)
+    """
+    # Try new method first (SHA-256 pre-hash)
+    prehashed = _prehash_password(plain_password)
+    if pwd_context.verify(prehashed, hashed_password):
+        return True
+    
+    # Try old method (direct bcrypt) for backward compatibility
+    if pwd_context.verify(plain_password, hashed_password):
+        return True
+    
+    return False
+
+def get_password_hash(password: str) -> str:
+    """
+    Hash password using SHA-256 pre-hash + bcrypt.
+    
+    This method handles passwords of any length by first pre-hashing with SHA-256,
+    then applying bcrypt. The SHA-256 hash is always 32 bytes (64 hex chars),
+    well within bcrypt's 72-byte limit.
+    """
+    prehashed = _prehash_password(password)
+    return pwd_context.hash(prehashed)
 
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
     to_encode = data.copy()

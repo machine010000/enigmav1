@@ -60,6 +60,16 @@
         ::-webkit-scrollbar-track { background: #0a0e1a; }
         ::-webkit-scrollbar-thumb { background: #374151; border-radius: 3px; }
     </style>
+    
+    <!-- Environment Configuration -->
+    <script>
+        // DEVELOPMENT: Set to local backend
+        // TEST: Set to test backend
+        // PRODUCTION: Set to deployed backend (REQUIRED - no localhost allowed)
+        window.ENIGMA_ENV = 'development'; // Change to 'test' or 'production' for other environments
+        window.ENIGMA_API_BASE = 'http://localhost:8000'; // Set to deployed backend URL in production
+        window.ENIGMA_USE_MOCK_DATA = false; // MUST be false in production
+    </script>
 <base target="_blank">
 </head>
 <body class="min-h-screen">

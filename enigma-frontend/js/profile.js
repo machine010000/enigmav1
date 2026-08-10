@@ -7,6 +7,7 @@
  */
 
 import { apiCall, showToast } from './api.js';
+import { USE_MOCK_DATA, IS_PRODUCTION } from './config.js';
 
 let currentProfile = null;
 let availableProfessions = [];
@@ -27,7 +28,15 @@ export async function loadProfile() {
         return profile;
     } catch (error) {
         console.error('Failed to load profile:', error);
-        // Use mock data for development if endpoint doesn't exist
+        
+        // PRODUCTION: Do not use mock data - show error
+        if (IS_PRODUCTION || !USE_MOCK_DATA) {
+            showToast('Failed to load profile. Backend may be unavailable.', 'error');
+            renderProfileError();
+            return null;
+        }
+        
+        // DEVELOPMENT ONLY: Use mock data for development
         const mockProfile = getMockProfile();
         currentProfile = mockProfile;
         renderProfile(mockProfile);
