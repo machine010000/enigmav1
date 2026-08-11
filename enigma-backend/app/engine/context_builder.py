@@ -71,24 +71,8 @@ async def build_context(
         memory["_product_id"] = product_dict["id"]
 
     # ---- knowledge ----
+    # TEMPORARY DIAGNOSTIC: bypass DB knowledge query
     knowledge_list: list = []
-    if db is not None:
-        result = await db.execute(
-            select(MasterKnowledge).order_by(MasterKnowledge.created_at.desc()).limit(50)
-        )
-        knowledge_list = [
-            {
-                "id": str(k.id),
-                "category": k.category,
-                "domain": k.domain,
-                "market": k.market,
-                "key": k.key,
-                "value": k.value,
-                "confidence": k.confidence,
-                "source": k.source,
-            }
-            for k in result.scalars().all()
-        ]
 
     settings_dict: Dict[str, Any] = {
         "confidence_threshold": 0.7,
