@@ -35,10 +35,8 @@ async def build_context(
     memory: Dict[str, Any] = dict(extra_memory or {})
 
     # ---- user ----
+    # TEMPORARY DIAGNOSTIC: bypass user DB query
     user_dict: Dict[str, Any] = {}
-    if user is None and user_id and db is not None:
-        result = await db.execute(select(User).where(User.id == user_id))
-        user = result.scalar_one_or_none()
     if user is not None:
         user_dict = {
             "id": str(user.id),
@@ -51,10 +49,8 @@ async def build_context(
         memory["_user_id"] = user_dict["id"]
 
     # ---- product ----
+    # TEMPORARY DIAGNOSTIC: bypass product DB query
     product_dict: Dict[str, Any] = {}
-    if product is None and product_id and db is not None:
-        result = await db.execute(select(Product).where(Product.id == product_id))
-        product = result.scalar_one_or_none()
     if product is not None:
         product_dict = {
             "id": str(product.id),
