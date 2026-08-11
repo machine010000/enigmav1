@@ -149,10 +149,11 @@ async def execute_worker(
     # Execute worker
     # ---------------------------------------------------------
 
+    # TEMPORARY DIAGNOSTIC: disable DB persistence to isolate timeout cause
     result = await engine.execute(
         data.worker,
         ctx,
-        save=True,
+        save=False,  # Bypass DB persistence temporarily
         db=db,
     )
 
