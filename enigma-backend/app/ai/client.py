@@ -6,8 +6,8 @@ settings = get_settings()
 
 # HTTP client timeouts (seconds) - must be shorter than worker timeout
 HTTP_TIMEOUT = httpx.Timeout(
-    connect=5.0,    # Connection establishment
-    read=20.0,      # Server response reading
+    connect=10.0,   # Connection establishment (increased from 5.0)
+    read=30.0,      # Server response reading (increased from 20.0 for LLM generation)
     write=10.0,     # Request writing
     pool=5.0,       # Connection pool acquisition
 )
@@ -18,7 +18,8 @@ settings = get_settings()
 class NVIDIAClient:
     def __init__(self):
         self.api_key = settings.NVIDIA_API_KEY
-        self.base_url = settings.NVIDIA_BASE_URL.rstrip("/")
+        # Use default NVIDIA base URL if not configured
+        self.base_url = (settings.NVIDIA_BASE_URL or "https://integrate.api.nvidia.com/v1").rstrip("/")
         self.model = settings.AI_MODEL
 
         if not self.api_key:

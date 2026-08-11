@@ -214,14 +214,18 @@ class HealthCheck:
             return True
 
         try:
+            import asyncio
             from app.ai.gateway import gateway
 
-            # Simple test call
-            result = await gateway.classify(
-                system="You are a classifier.",
-                user="Test connection.",
-                temperature=0.1,
-                max_tokens=10,
+            # Simple test call with timeout to prevent health check hanging
+            result = await asyncio.wait_for(
+                gateway.classify(
+                    system="You are a classifier.",
+                    user="Test connection.",
+                    temperature=0.1,
+                    max_tokens=10,
+                ),
+                timeout=15.0  # Health check timeout (shorter than worker timeout)
             )
 
             if not result:
@@ -230,6 +234,10 @@ class HealthCheck:
 
             return True
 
+        except asyncio.TimeoutError:
+            # AI provider is optional - warn but don't fail startup
+            self.warnings.append("AI provider connection timed out")
+            return False
         except Exception as e:
             # AI provider is optional - warn but don't fail startup
             self.warnings.append(f"AI provider connection failed: {str(e)}")
