@@ -35,8 +35,10 @@ async def build_context(
     memory: Dict[str, Any] = dict(extra_memory or {})
 
     # ---- user ----
-    # TEMPORARY DIAGNOSTIC: bypass user DB query
     user_dict: Dict[str, Any] = {}
+    if user is None and user_id and db is not None:
+        result = await db.execute(select(User).where(User.id == user_id))
+        user = result.scalar_one_or_none()
     if user is not None:
         user_dict = {
             "id": str(user.id),
@@ -49,8 +51,10 @@ async def build_context(
         memory["_user_id"] = user_dict["id"]
 
     # ---- product ----
-    # TEMPORARY DIAGNOSTIC: bypass product DB query
     product_dict: Dict[str, Any] = {}
+    if product is None and product_id and db is not None:
+        result = await db.execute(select(Product).where(Product.id == product_id))
+        product = result.scalar_one_or_none()
     if product is not None:
         product_dict = {
             "id": str(product.id),
@@ -67,8 +71,24 @@ async def build_context(
         memory["_product_id"] = product_dict["id"]
 
     # ---- knowledge ----
-    # TEMPORARY DIAGNOSTIC: bypass DB knowledge query
     knowledge_list: list = []
+    if db is not None:
+        result = await db.execute(
+            select(MasterKnowledge).order_by(MasterKnowledge.created_at.desc()).limit(50)
+        )
+        knowledge_list = [
+            {
+                "id": str(k.id),
+                "category": k.category,
+                "domain": k.domain,
+                "market": k.market,
+                "key": k.key,
+                "value": k.value,
+                "confidence": k.confidence,
+                "source": k.source,
+            }
+            for k in result.scalars().all()
+        ]
 
     settings_dict: Dict[str, Any] = {
         "confidence_threshold": 0.7,

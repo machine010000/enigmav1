@@ -27,6 +27,7 @@ GET  /engine/executions
 
 from __future__ import annotations
 
+import asyncio
 import uuid
 from typing import Any, Dict, List, Optional
 
@@ -134,28 +135,49 @@ async def execute_worker(
     #
     # context.product
     #
+    # OR directly at the top level of context:
+    #
+    # context.title, context.description, etc.
+    #
     # Previously this was incorrectly gated behind
     # `data.product_id`, which meant product_id=null caused
     # the direct product payload to be ignored.
     # ---------------------------------------------------------
 
     if not ctx.product and data.context:
+        # First try nested product structure
         direct_product = data.context.get("product")
 
         if isinstance(direct_product, dict):
             ctx.product = direct_product
+        else:
+            # Fallback: treat entire context as product if it contains product-like fields
+            product_like_fields = ["title", "name", "description", "category", "images"]
+            if any(field in data.context for field in product_like_fields):
+                ctx.product = data.context
 
     # ---------------------------------------------------------
     # Execute worker
     # ---------------------------------------------------------
 
-    # TEMPORARY DIAGNOSTIC: disable DB persistence to isolate timeout cause
-    result = await engine.execute(
-        data.worker,
-        ctx,
-        save=False,  # Bypass DB persistence temporarily
-        db=db,
-    )
+    # Add request-level timeout to prevent indefinite hanging
+    # Maximum execution time: 120 seconds (2 minutes)
+    # This covers: 3 LLM calls (30s each) + DB operations + overhead
+    try:
+        result = await asyncio.wait_for(
+            engine.execute(
+                data.worker,
+                ctx,
+                save=True,  # Restore DB persistence
+                db=db,
+            ),
+            timeout=120.0,
+        )
+    except asyncio.TimeoutError:
+        raise HTTPException(
+            status_code=504,
+            detail="Worker execution timed out after 120 seconds"
+        )
 
     return result.to_dict()
 
