@@ -28,8 +28,15 @@ if config.config_file_name is not None:
 target_metadata = Base.metadata
 
 # Override sqlalchemy.url from environment variable
+# Alembic requires a sync driver URL; convert asyncpg → psycopg2 if needed
 from app.core.config import settings
-config.set_main_option("sqlalchemy.url", settings.DATABASE_URL)
+_db_url = settings.DATABASE_URL
+if "+asyncpg" in _db_url:
+    _db_url = _db_url.replace("+asyncpg", "+psycopg2")
+elif _db_url.startswith("postgresql://") and "+psycopg2" not in _db_url:
+    # Plain postgresql:// already works with psycopg2 dialect
+    pass
+config.set_main_option("sqlalchemy.url", _db_url)
 
 
 def run_migrations_offline() -> None:
