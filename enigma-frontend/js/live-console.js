@@ -1,3 +1,5 @@
+import { WEBSOCKET_BASE } from './config.js';
+
 /**
  * Live Console Module (TASK-006)
  *
@@ -16,9 +18,7 @@ export function initLiveConsole() {
 }
 
 function connectWebSocket() {
-    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const host = window.location.host;
-    const wsUrl = `${protocol}//${host}/ws/events`;
+    const wsUrl = `${WEBSOCKET_BASE}/ws/events`;
 
     const statusEl = document.getElementById('ws-status');
     statusEl.textContent = 'Connecting…';

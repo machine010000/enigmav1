@@ -37,10 +37,18 @@ export async function loadAllPartials() {
 }
 
 export function showPage(pageName) {
-    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('.page').forEach(p => {
+        p.classList.remove('active');
+        p.hidden = true;
+        p.style.display = 'none';
+    });
 
     const target = document.getElementById('page-' + pageName);
-    if (target) target.classList.add('active');
+    if (target) {
+        target.hidden = false;
+        target.style.display = 'block';
+        target.classList.add('active');
+    }
 
     document.querySelectorAll('.sidebar-item').forEach(item => item.classList.remove('active'));
     const sidebarItem = document.querySelector(`a[onclick="showPage('${pageName}')"]`);

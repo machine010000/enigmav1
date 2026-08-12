@@ -19,6 +19,9 @@ const ENVIRONMENT = window.ENIGMA_ENV || 'development';
 
 // API Base URL - MUST be set in production
 const API_BASE = window.ENIGMA_API_BASE;
+const WEBSOCKET_BASE = API_BASE
+    ? API_BASE.replace(/^http:/, 'ws:').replace(/^https:/, 'wss:')
+    : undefined;
 
 // Mock data flag - MUST be false in production
 export const USE_MOCK_DATA = window.ENIGMA_USE_MOCK_DATA === true && ENVIRONMENT === 'development';
@@ -85,7 +88,7 @@ if (configErrors.length > 0) {
 }
 
 // Export validated configuration
-export { API_BASE, ENVIRONMENT };
+export { API_BASE, WEBSOCKET_BASE, ENVIRONMENT };
 export const IS_PRODUCTION = ENVIRONMENT === 'production';
 export const IS_DEVELOPMENT = ENVIRONMENT === 'development';
 export const IS_TEST = ENVIRONMENT === 'test';

@@ -4,8 +4,10 @@ import { showPage } from './router.js';
 let currentDashboardTab = 'running';
 
 export async function loadDashboard() {
+    if (!localStorage.getItem('enigma_token')) return;
+
     try {
-        const data = await apiCall('/dashboard');
+        const data = await apiCall('/dashboard/');
         const summary = data.summary;
 
         // Summary cards

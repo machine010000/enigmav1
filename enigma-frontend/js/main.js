@@ -43,8 +43,6 @@ window.showPage = (pageName) => {
             return;
         }
         loadProfile();
-        loadEvidence();
-        loadReadiness();
     } else if (pageName === 'profile-edit') {
         renderEditForm();
     } else if (pageName === 'freelancing') {

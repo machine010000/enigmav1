@@ -194,63 +194,80 @@ function renderProfile(profile) {
     const professionEl = document.getElementById('profile-profession');
     const readinessEl = document.getElementById('profile-readiness');
     
-    if (nameEl) nameEl.textContent = profile.name || 'Enigma';
-    if (taglineEl) taglineEl.textContent = profile.tagline || 'Your AI Business Brain';
-    if (professionEl) professionEl.textContent = profile.profession_focus || 'Not set';
-    // Compute overall readiness when backend does not provide explicit field
-    let overallReadiness = null;
-    if (typeof profile.overall_readiness === 'number') {
-        overallReadiness = profile.overall_readiness;
-    } else if (typeof profile.ready_for_freelance_count === 'number' && typeof profile.total_capabilities === 'number' && profile.total_capabilities > 0) {
-        overallReadiness = profile.ready_for_freelance_count / profile.total_capabilities;
-    }
-    if (readinessEl) readinessEl.textContent = overallReadiness !== null ? `${(overallReadiness * 100).toFixed(0)}%` : '-';
+    if (nameEl) nameEl.textContent = 'ENIGMA';
+    if (taglineEl) taglineEl.textContent = 'Operational capability profile';
+    if (professionEl) professionEl.textContent = 'Expertise domains are not exposed by the current profile API';
+    // UI-derived ratio from the real profile counts; this is not a backend field.
+    const totalCapabilities = Number(profile.total_capabilities) || 0;
+    const readyCapabilities = Number(profile.ready_for_freelance_count) || 0;
+    const overallReadiness = totalCapabilities > 0 ? readyCapabilities / totalCapabilities : 0;
+    if (readinessEl) readinessEl.textContent = `${(overallReadiness * 100).toFixed(0)}%`;
     
     // Render professions
     const professionsEl = document.getElementById('profile-professions');
-    if (professionsEl && profile.professions) {
-        professionsEl.innerHTML = profile.professions.map((prof, index) => `
-            <div class="flex items-center gap-3 p-3 rounded-lg bg-dark-800 border ${index === 0 ? 'border-brand-purple/50' : 'border-gray-700'}">
-                <div class="w-8 h-8 rounded-lg bg-brand-purple/20 flex items-center justify-center">
-                    <i class="fas fa-check text-brand-purple text-sm"></i>
-                </div>
-                <div>
-                    <p class="font-semibold text-sm">${prof.name}</p>
-                    <p class="text-xs text-gray-400">${index === 0 ? 'Primary Focus' : 'Secondary'}</p>
-                </div>
-            </div>
-        `).join('');
+    if (professionsEl) {
+        professionsEl.innerHTML = '<div class="text-gray-500 text-sm">Expertise domains are not exposed by the current profile API.</div>';
     }
     
     // Render capabilities
     const capabilitiesEl = document.getElementById('profile-capabilities');
-    if (capabilitiesEl && profile.capabilities) {
-        capabilitiesEl.innerHTML = profile.capabilities.map(cap => `
+    if (capabilitiesEl) {
+        const capabilities = Array.isArray(profile.capabilities) ? profile.capabilities : [];
+        capabilitiesEl.innerHTML = capabilities.length ? capabilities.map(cap => {
+            const confidence = Number.isFinite(cap.confidence) ? cap.confidence : 0;
+            const threshold = Number.isFinite(cap.freelance_readiness_threshold) ? cap.freelance_readiness_threshold : 0;
+            const status = cap.status || 'unknown';
+            return `
             <div class="p-3 rounded-lg bg-dark-800 border border-gray-700">
                 <div class="flex items-center justify-between mb-1">
                     <span class="font-semibold text-sm">${cap.name}</span>
-                    <span class="tag tag-${getMaturityColor(cap.maturity_level)} text-xs">${cap.maturity_level}</span>
+                    <span class="tag tag-${getStatusColor(status)} text-xs">${status}</span>
                 </div>
-                <p class="text-xs text-gray-400">Readiness: ${(cap.readiness * 100).toFixed(0)}%</p>
+                <p class="text-xs text-gray-400 mb-2">${cap.description || 'No description available'}</p>
+                <div class="grid grid-cols-2 gap-1 text-xs text-gray-400">
+                    <span>Category: <span class="text-gray-300">${cap.category || 'Not specified'}</span></span>
+                    <span>Module: <span class="text-gray-300">${cap.module || 'Not specified'}</span></span>
+                    <span>Confidence: <span class="text-gray-300">${(confidence * 100).toFixed(0)}%</span></span>
+                    <span>Evidence: <span class="text-gray-300">${Number(cap.evidence_count) || 0}</span></span>
+                    <span>Successful: <span class="text-gray-300">${Number(cap.successful_executions) || 0}</span></span>
+                    <span>Failed: <span class="text-gray-300">${Number(cap.failed_executions) || 0}</span></span>
+                    <span>Execution: <span class="text-gray-300">${cap.execution_available ? 'Available' : 'Unavailable'}</span></span>
+                    <span>Threshold: <span class="text-gray-300">${(threshold * 100).toFixed(0)}%</span></span>
+                </div>
+                <p class="text-xs mt-2 ${cap.meets_threshold ? 'text-green-400' : 'text-yellow-400'}">${cap.meets_threshold ? 'Meets freelance threshold' : 'Does not meet freelance threshold'}</p>
             </div>
-        `).join('');
+        `;
+        }).join('') : '<div class="text-gray-500 text-sm">No capabilities are available in the current profile.</div>';
     }
     
     // Render workspaces
     const workspacesEl = document.getElementById('profile-workspaces');
-    if (workspacesEl && profile.active_workspaces) {
-        workspacesEl.innerHTML = profile.active_workspaces.map(ws => `
-            <div class="flex items-center justify-between p-3 rounded-lg bg-dark-800 border border-gray-700">
-                <div class="flex items-center gap-3">
-                    <div class="w-8 h-8 rounded-lg bg-brand-purple/20 flex items-center justify-center">
-                        <i class="fas fa-briefcase text-brand-purple text-sm"></i>
-                    </div>
-                    <span class="font-semibold text-sm">${ws.name}</span>
-                </div>
-                <span class="tag tag-green text-xs">${ws.state}</span>
-            </div>
-        `).join('');
+    if (workspacesEl) {
+        workspacesEl.innerHTML = '<div class="text-gray-500 text-sm">Workspace data is not exposed by the current profile API.</div>';
     }
+
+    renderProfileEvidenceSummary(profile.capabilities);
+    renderProfileReadinessSummary(profile);
+}
+
+function renderProfileEvidenceSummary(capabilities) {
+    const items = Array.isArray(capabilities) ? capabilities : [];
+    const count = items.reduce((sum, cap) => sum + (Number(cap.evidence_count) || 0), 0);
+    const countEl = document.getElementById('profile-evidence-count');
+    const evidenceEl = document.getElementById('profile-evidence');
+    if (countEl) countEl.textContent = count;
+    if (evidenceEl) evidenceEl.innerHTML = '<div class="text-gray-500 text-sm">Detailed evidence history is not available in this view yet.</div>';
+}
+
+function renderProfileReadinessSummary(profile) {
+    const readinessEl = document.getElementById('profile-readiness-scores');
+    if (!readinessEl) return;
+    readinessEl.innerHTML = `
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-3 text-sm">
+            <div class="p-3 rounded-lg bg-dark-800">Total capabilities: <span class="font-semibold">${profile.total_capabilities || 0}</span></div>
+            <div class="p-3 rounded-lg bg-dark-800">Qualified: <span class="font-semibold">${profile.qualified_count || 0}</span></div>
+            <div class="p-3 rounded-lg bg-dark-800">Freelance ready: <span class="font-semibold">${profile.ready_for_freelance_count || 0}</span></div>
+        </div>`;
 }
 
 /**
@@ -390,12 +407,13 @@ export async function renderEditForm() {
  * @param {string} level - Maturity level
  * @returns {string} Tailwind color class
  */
-function getMaturityColor(level) {
+function getStatusColor(level) {
     const colors = {
-        'Applied': 'green',
-        'Supported': 'blue',
-        'Emerging': 'yellow',
-        'Theoretical': 'gray'
+        'proven': 'green',
+        'qualified': 'green',
+        'practicing': 'blue',
+        'learning': 'yellow',
+        'unknown': 'gray'
     };
     return colors[level] || 'gray';
 }
