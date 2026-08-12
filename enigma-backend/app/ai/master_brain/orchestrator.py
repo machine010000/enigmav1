@@ -7,6 +7,7 @@ from app.core.logging_config import get_logger
 from app.engine.decision_engine import DecisionEngine
 from app.intelligence import IntelligenceEngine
 from app.intelligence.reasoning_session import ReasoningSession
+from app.ai.client import AITimeoutError, AIConfigurationError, AIAuthenticationError, AIConnectionError, AIProviderError
 
 logger = get_logger(__name__)
 
@@ -115,16 +116,15 @@ class MasterBrain:
                 "intent": intent,
                 "knowledge_used": []
             }
+        except (AITimeoutError, AIConfigurationError, AIAuthenticationError, AIConnectionError, AIProviderError):
+            # Re-raise typed AI errors to allow router to map to appropriate HTTP status codes
+            raise
         except Exception as e:
-            # Log the actual exception server-side (without exposing secrets)
-            logger.error(f"AI provider error in master_brain.chat: {type(e).__name__}", exc_info=True)
+            # Log unexpected exceptions server-side (without exposing secrets)
+            logger.error(f"Unexpected AI provider error in master_brain.chat: {type(e).__name__}", exc_info=True)
             
-            # Return generic safe user response
-            return {
-                "reply": "I apologize, but I'm having trouble connecting to my AI provider right now. Please try again later.",
-                "intent": "error",
-                "knowledge_used": []
-            }
+            # Re-raise as generic provider error for consistent handling
+            raise AIProviderError(f"Unexpected AI provider error") from e
 
 
 master_brain = MasterBrain()

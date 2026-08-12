@@ -2,12 +2,37 @@ import httpx
 import json
 from app.core.config import get_settings
 
+
+class AIConfigurationError(RuntimeError):
+    """Raised when AI client configuration is missing or invalid."""
+    pass
+
+
+class AIAuthenticationError(RuntimeError):
+    """Raised when AI provider authentication fails."""
+    pass
+
+
+class AIConnectionError(RuntimeError):
+    """Raised when AI provider connection fails."""
+    pass
+
+
+class AITimeoutError(RuntimeError):
+    """Raised when AI provider request times out."""
+    pass
+
+
+class AIProviderError(RuntimeError):
+    """Raised when AI provider returns an error response."""
+    pass
+
 settings = get_settings()
 
 # HTTP client timeouts (seconds) - must be shorter than worker timeout
 HTTP_TIMEOUT = httpx.Timeout(
-    connect=10.0,   # Connection establishment (increased from 5.0)
-    read=30.0,      # Server response reading (increased from 20.0 for LLM generation)
+    connect=10.0,   # Connection establishment
+    read=120.0,     # Server response reading (increased for LLM generation)
     write=10.0,     # Request writing
     pool=5.0,       # Connection pool acquisition
 )
@@ -47,7 +72,7 @@ class NVIDIAClient:
             missing.append("AI_MODEL")
         
         if missing:
-            raise RuntimeError(f"NVIDIA client configuration missing: {', '.join(missing)}")
+            raise AIConfigurationError(f"NVIDIA client configuration missing: {', '.join(missing)}")
         
         payload = {
             "model": self.model,
@@ -73,17 +98,17 @@ class NVIDIAClient:
         except httpx.HTTPStatusError as e:
             # Provide clearer error messages for common authentication issues
             if e.response.status_code == 401:
-                raise RuntimeError("NVIDIA API authentication failed: Invalid API key or credentials") from e
+                raise AIAuthenticationError("NVIDIA API authentication failed: Invalid API key or credentials") from e
             elif e.response.status_code == 403:
-                raise RuntimeError("NVIDIA API access denied: API key lacks required permissions or is invalid") from e
+                raise AIProviderError("NVIDIA API access denied: API key lacks required permissions or is invalid") from e
             elif e.response.status_code == 429:
-                raise RuntimeError("NVIDIA API rate limit exceeded") from e
+                raise AIProviderError("NVIDIA API rate limit exceeded") from e
             else:
-                raise RuntimeError(f"NVIDIA API request failed with status {e.response.status_code}") from e
+                raise AIProviderError(f"NVIDIA API request failed with status {e.response.status_code}") from e
         except httpx.TimeoutException as e:
-            raise RuntimeError("NVIDIA API request timed out") from e
+            raise AITimeoutError("NVIDIA API request timed out") from e
         except Exception as e:
-            raise RuntimeError(f"NVIDIA API request failed: {str(e)}") from e
+            raise AIConnectionError(f"NVIDIA API request failed: {str(e)}") from e
 
     async def generate_json(
         self,
