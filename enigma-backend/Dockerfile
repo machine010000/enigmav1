@@ -10,4 +10,4 @@ EXPOSE $PORT
 # TASK-018: Run Alembic migrations before starting the server.
 # Verify the deployed database revision and required columns, then start only on success.
 # This is idempotent — already-applied revisions are skipped.
-CMD ["sh", "-c", "alembic upgrade head && python -m app.core.migration_verify && exec uvicorn app.main:app --host 0.0.0.0 --port \"${PORT:-8000}\"\"]
+CMD ["sh", "-c", "alembic upgrade head && python -m app.core.migration_verify && exec uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}"]
