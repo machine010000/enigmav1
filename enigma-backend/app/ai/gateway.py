@@ -7,7 +7,7 @@ from app.ai.providers.nvidia import NVIDIAProvider
 from app.ai.providers.openai import OpenAIProvider
 from app.ai.providers.ollama import OllamaProvider
 from app.ai.providers.gemini import GeminiProvider
-from app.config import get_settings
+from app.core.config import get_settings
 
 settings = get_settings()
 

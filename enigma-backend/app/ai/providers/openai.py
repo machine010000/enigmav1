@@ -8,10 +8,7 @@ from app.ai.providers import LLMProvider
 
 class OpenAIProvider(LLMProvider):
     def __init__(self) -> None:
-        from app.config import get_settings
-
-        settings = get_settings()
-        self.api_key = os.getenv("OPENAI_API_KEY", settings.NVIDIA_API_KEY)
+        self.api_key = os.getenv("OPENAI_API_KEY")
         self.base_url = os.getenv("OPENAI_BASE_URL", "https://api.openai.com/v1")
         self.model = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
         self.headers = {

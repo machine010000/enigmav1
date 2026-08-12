@@ -8,10 +8,7 @@ from app.ai.providers import LLMProvider
 
 class GeminiProvider(LLMProvider):
     def __init__(self) -> None:
-        from app.config import get_settings
-
-        settings = get_settings()
-        self.api_key = os.getenv("GEMINI_API_KEY", settings.NVIDIA_API_KEY)
+        self.api_key = os.getenv("GEMINI_API_KEY")
         self.model = os.getenv("GEMINI_MODEL", "gemini-2.0-flash")
         self.base_url = f"https://generativelanguage.googleapis.com/v1beta/models/{self.model}"
 

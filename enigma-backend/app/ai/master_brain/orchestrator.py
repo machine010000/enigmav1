@@ -3,9 +3,12 @@ from typing import Optional, Any
 from app.ai.master_brain.events import BrainEvent, BrainEventBus, BrainEventType
 from app.ai.master_brain.models import Planner
 from app.ai.master_brain.state import MasterBrainStateMachine
+from app.core.logging_config import get_logger
 from app.engine.decision_engine import DecisionEngine
 from app.intelligence import IntelligenceEngine
 from app.intelligence.reasoning_session import ReasoningSession
+
+logger = get_logger(__name__)
 
 
 class MasterBrain:
@@ -71,6 +74,57 @@ class MasterBrain:
 
     def transition(self) -> None:
         self.state_machine.advance()
+
+    async def chat(self, db, user_id: str, message: str) -> dict:
+        """
+        Chat with the master brain - generate AI response.
+        
+        Args:
+            db: Database session
+            user_id: User ID
+            message: User message
+            
+        Returns:
+            Dict with reply, intent, and knowledge_used
+        """
+        from app.ai.gateway import gateway
+        
+        # Generate AI response using the gateway
+        messages = [
+            {"role": "system", "content": "You are ENIGMA, an AI business brain assistant. Help users with business decisions, strategy, and growth."},
+            {"role": "user", "content": message}
+        ]
+        
+        try:
+            response = await gateway.chat(messages, temperature=0.7, max_tokens=1000)
+            
+            # Extract the reply from OpenAI-compatible response
+            reply = response.get("choices", [{}])[0].get("message", {}).get("content", "")
+            
+            # Simple intent detection (can be enhanced)
+            intent = "general"
+            if "strategy" in message.lower() or "plan" in message.lower():
+                intent = "strategic_planning"
+            elif "market" in message.lower() or "competitor" in message.lower():
+                intent = "market_analysis"
+            elif "product" in message.lower():
+                intent = "product_guidance"
+            
+            return {
+                "reply": reply,
+                "intent": intent,
+                "knowledge_used": []
+            }
+        except Exception as e:
+            # Log the actual exception server-side (without exposing secrets)
+            logger.error(f"AI provider error in master_brain.chat: {type(e).__name__}", exc_info=True)
+            
+            # Return generic safe user response
+            return {
+                "reply": "I apologize, but I'm having trouble connecting to my AI provider right now. Please try again later.",
+                "intent": "error",
+                "knowledge_used": []
+            }
 
 
 master_brain = MasterBrain()

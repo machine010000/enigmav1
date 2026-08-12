@@ -1,6 +1,6 @@
 import httpx
 import json
-from app.config import get_settings
+from app.core.config import get_settings
 
 settings = get_settings()
 
@@ -22,13 +22,13 @@ class NVIDIAClient:
         self.base_url = (settings.NVIDIA_BASE_URL or "https://integrate.api.nvidia.com/v1").rstrip("/")
         self.model = settings.AI_MODEL
 
-        if not self.api_key:
-            raise RuntimeError("NVIDIA_API_KEY is not configured")
-
-        self.headers = {
-            "Authorization": f"Bearer {self.api_key}",
-            "Content-Type": "application/json",
-        }
+        if self.api_key:
+            self.headers = {
+                "Authorization": f"Bearer {self.api_key}",
+                "Content-Type": "application/json",
+            }
+        else:
+            self.headers = {}
 
     async def chat(
         self,
@@ -37,6 +37,18 @@ class NVIDIAClient:
         max_tokens=1000,
         response_format=None,
     ):
+        # Validate configuration at request time
+        missing = []
+        if not self.api_key:
+            missing.append("NVIDIA_API_KEY")
+        if not self.base_url:
+            missing.append("NVIDIA_BASE_URL")
+        if not self.model:
+            missing.append("AI_MODEL")
+        
+        if missing:
+            raise RuntimeError(f"NVIDIA client configuration missing: {', '.join(missing)}")
+        
         payload = {
             "model": self.model,
             "messages": messages,
