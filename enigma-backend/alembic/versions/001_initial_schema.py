@@ -52,21 +52,25 @@ def upgrade() -> None:
     )
     auth_status_enum.create(op.get_bind())
     
-    # Create enigma_profiles table
-    op.create_table(
-        'enigma_profiles',
-        sa.Column('id', sa.Integer(), autoincrement=True, nullable=False),
-        sa.Column('profile_id', sa.String(), nullable=False),
-        sa.Column('name', sa.String(), nullable=True),
-        sa.Column('profession', sa.String(), nullable=True),
-        sa.Column('expertise_domains', sa.JSON(), nullable=True),
-        sa.Column('capabilities', sa.JSON(), nullable=True),
-        sa.Column('metadata', sa.JSON(), nullable=True),  # Python attribute: profile_metadata
-        sa.Column('created_at', sa.DateTime(), nullable=True),
-        sa.Column('updated_at', sa.DateTime(), nullable=True),
-        sa.PrimaryKeyConstraint('id'),
-        sa.UniqueConstraint('profile_id')
-    )
+    # Create enigma_profiles table (skip if it already exists)
+    conn = op.get_bind()
+    from sqlalchemy import inspect
+    inspector = inspect(conn)
+    if 'enigma_profiles' not in inspector.get_table_names():
+        op.create_table(
+            'enigma_profiles',
+            sa.Column('id', sa.Integer(), autoincrement=True, nullable=False),
+            sa.Column('profile_id', sa.String(), nullable=False),
+            sa.Column('name', sa.String(), nullable=True),
+            sa.Column('profession', sa.String(), nullable=True),
+            sa.Column('expertise_domains', sa.JSON(), nullable=True),
+            sa.Column('capabilities', sa.JSON(), nullable=True),
+            sa.Column('metadata', sa.JSON(), nullable=True),  # Python attribute: profile_metadata
+            sa.Column('created_at', sa.DateTime(), nullable=True),
+            sa.Column('updated_at', sa.DateTime(), nullable=True),
+            sa.PrimaryKeyConstraint('id'),
+            sa.UniqueConstraint('profile_id')
+        )
     op.create_index('ix_enigma_profiles_profile_id', 'enigma_profiles', ['profile_id'])
     
     # Create knowledge_progress table
