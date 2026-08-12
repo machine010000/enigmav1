@@ -179,6 +179,44 @@ class MasterBrain:
                 execution_input={"product_id": product_id} if product_id else {},
                 confidence=0.9,
             )
+
+        # Check for keyword research requests (TASK-018)
+        if any(kw in message_lower for kw in ("keyword", "keywords", "keyword research", "search terms")):
+            topic = context.get("topic") or context.get("product_id") if context else None
+
+            resolution = capability_registry.resolve_capability("keyword_research")
+            if resolution is None:
+                return BrainDecision(
+                    action=BrainAction.ANSWER,
+                    intent="keyword_research",
+                    reasoning_summary="Keyword research capability not available.",
+                    execution_required=False,
+                    confidence=0.0,
+                )
+
+            execution_input: dict = {}
+            if context:
+                if context.get("topic"):
+                    execution_input["topic"] = context["topic"]
+                if context.get("seed_keywords"):
+                    execution_input["seed_keywords"] = context["seed_keywords"]
+                if context.get("market"):
+                    execution_input["market"] = context["market"]
+                if context.get("goal"):
+                    execution_input["goal"] = context["goal"]
+                if topic:
+                    execution_input.setdefault("topic", str(topic))
+
+            return BrainDecision(
+                action=BrainAction.EXECUTE_CAPABILITY,
+                intent="keyword_research",
+                capability="keyword_research",
+                target=topic,
+                reasoning_summary="Keyword research will identify target search terms for the business or product.",
+                execution_required=True,
+                execution_input=execution_input,
+                confidence=0.9,
+            )
         
         # Default to conversational response
         return BrainDecision(

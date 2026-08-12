@@ -7,4 +7,8 @@ COPY . .
 # Use $PORT from environment (Render, Railway, etc.)
 ENV PORT=8000
 EXPOSE $PORT
-CMD ["sh", "-c", "exec uvicorn app.main:app --host 0.0.0.0 --port \"${PORT:-8000}\""]
+# TASK-018: Run Alembic migrations before starting the server.
+# This is idempotent — already-applied revisions are skipped.
+# Migrations 002 (execution ownership) and 003 (capability intelligence)
+# will be applied on first deployment after this change.
+CMD ["sh", "-c", "alembic upgrade head && exec uvicorn app.main:app --host 0.0.0.0 --port \"${PORT:-8000}\""]
