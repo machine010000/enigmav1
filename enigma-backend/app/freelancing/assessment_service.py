@@ -156,13 +156,15 @@ class OpportunityAssessmentService:
             for row in rows:
                 snapshot[row.domain] = {
                     "confidence": row.confidence or 0.0,
-                    "evidence_count": row.evidence_count or 0,
-                    "successful_execution_count": row.successful_execution_count or 0,
-                    "failed_execution_count": row.failed_execution_count or 0,
-                    "capability_status": row.capability_status or "unknown",
+                    "evidence_count": getattr(row, 'evidence_count', None) or 0,
+                    "successful_execution_count": getattr(row, 'successful_execution_count', None) or 0,
+                    "failed_execution_count": getattr(row, 'failed_execution_count', None) or 0,
+                    "capability_status": getattr(row, 'capability_status', None) or "unknown",
                     "readiness": row.readiness or 0.0,
                     "last_success_at": (
-                        row.last_success_at.isoformat() if row.last_success_at else None
+                        row.last_success_at.isoformat()
+                        if getattr(row, 'last_success_at', None)
+                        else None
                     ),
                 }
             return snapshot

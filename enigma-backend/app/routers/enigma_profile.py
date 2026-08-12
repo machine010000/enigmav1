@@ -117,25 +117,28 @@ async def get_enigma_profile(
     Safe fields only — no chain-of-thought, no prompts, no secrets.
     """
     # Load all KnowledgeProgress rows for the global enigma profile
-    result = await db.execute(
-        select(KnowledgeProgress).where(
-            KnowledgeProgress.profile_id == "enigma_profile"
+    try:
+        result = await db.execute(
+            select(KnowledgeProgress).where(
+                KnowledgeProgress.profile_id == "enigma_profile"
+            )
         )
-    )
-    rows = result.scalars().all()
-
-    # Index by domain for fast lookup
-    profile_data: Dict[str, KnowledgeProgress] = {row.domain: row for row in rows}
+        rows = result.scalars().all()
+        # Index by domain for fast lookup
+        profile_data: Dict[str, KnowledgeProgress] = {row.domain: row for row in rows}
+    except Exception:
+        # DB schema may not yet have TASK-017 columns (pre-migration) — graceful degradation
+        profile_data = {}
 
     # Build response from catalog entries (includes capabilities with no evidence yet)
     capabilities: List[Dict[str, Any]] = []
     for entry in capability_catalog.list_all():
         row = profile_data.get(entry.capability_id)
         confidence = float(row.confidence or 0.0) if row else 0.0
-        evidence_count = int(row.evidence_count or 0) if row else 0
-        success_count = int(row.successful_execution_count or 0) if row else 0
-        fail_count = int(row.failed_execution_count or 0) if row else 0
-        cap_status = row.capability_status if row else CapabilityStatus.UNKNOWN.value
+        evidence_count = int(getattr(row, 'evidence_count', None) or 0) if row else 0
+        success_count = int(getattr(row, 'successful_execution_count', None) or 0) if row else 0
+        fail_count = int(getattr(row, 'failed_execution_count', None) or 0) if row else 0
+        cap_status = getattr(row, 'capability_status', None) or CapabilityStatus.UNKNOWN.value if row else CapabilityStatus.UNKNOWN.value
 
         capabilities.append({
             "capability_id": entry.capability_id,
