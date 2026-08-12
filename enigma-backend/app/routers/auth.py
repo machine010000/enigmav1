@@ -9,7 +9,7 @@ from sqlalchemy import select
 from pydantic import BaseModel
 
 from app.database import get_db
-from app.config import get_settings
+from app.core.config import get_settings
 from app.models.user import User
 
 router = APIRouter(prefix="/auth", tags=["auth"])
