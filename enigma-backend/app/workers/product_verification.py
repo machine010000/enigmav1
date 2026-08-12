@@ -543,6 +543,9 @@ class ProductVerificationWorker(Worker):
                 ),
             )
 
+        # Store result in context.memory for downstream workers
+        context.remember("product_verification_result", result_data)
+
         return result
 
     # ------------------------------------------------------------------
