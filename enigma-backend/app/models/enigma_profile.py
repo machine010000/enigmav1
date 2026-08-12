@@ -85,9 +85,32 @@ class EnigmaProfile(Base):
     issues = relationship("Issue", back_populates="profile", cascade="all, delete-orphan")
 
 
+class CapabilityStatus(str, enum.Enum):
+    """
+    TASK-017: Canonical capability status vocabulary.
+    
+    Progression: UNKNOWN → LEARNING → PRACTICING → QUALIFIED → PROVEN
+    Status is derived from evidence counts and confidence — never self-asserted
+    by the LLM.
+    """
+    UNKNOWN = "unknown"
+    LEARNING = "learning"      # evidence_count < 3 OR confidence < 0.4
+    PRACTICING = "practicing"  # evidence_count >= 3 AND confidence >= 0.4
+    QUALIFIED = "qualified"    # evidence_count >= 5 AND confidence >= 0.65
+    PROVEN = "proven"          # evidence_count >= 10 AND confidence >= 0.80
+
+
 class KnowledgeProgress(Base):
     """
-    Progress tracking for a knowledge domain.
+    Progress tracking for a knowledge domain / capability.
+
+    TASK-017 extensions:
+    - capability_status: evidence-derived status (UNKNOWN→LEARNING→PRACTICING→QUALIFIED→PROVEN)
+    - evidence_count: total executions observed
+    - successful_execution_count: successful executions only
+    - failed_execution_count: failed executions only
+    - last_success_at: timestamp of most recent successful execution
+    - freelance_readiness_threshold: minimum confidence required for READY_TO_APPLY
     """
     __tablename__ = "knowledge_progress"
 
@@ -101,6 +124,15 @@ class KnowledgeProgress(Base):
     evidence_score = Column(Float, default=0.0)
     confidence = Column(Float, default=0.0)
     readiness = Column(Float, default=0.0)
+    
+    # TASK-017: evidence-based capability status
+    capability_status = Column(String, default=CapabilityStatus.UNKNOWN.value)
+    evidence_count = Column(Integer, default=0)
+    successful_execution_count = Column(Integer, default=0)
+    failed_execution_count = Column(Integer, default=0)
+    last_success_at = Column(DateTime, nullable=True)
+    # Minimum confidence threshold before this capability qualifies for READY_TO_APPLY
+    freelance_readiness_threshold = Column(Float, default=0.65)
     
     # Metadata
     last_verified = Column(DateTime)
