@@ -55,9 +55,10 @@ def test_timeout_maps_to_504():
                 db=AsyncMock()
             ))
         
-        # Verify the HTTPException has status 504
+        # Verify the HTTPException has status 504 and generic safe message
         assert exc_info.value.status_code == 504
-        assert exc_info.value.detail == "AI provider timed out. Please try again."
+        # TASK-016: unified error message — does not expose error type detail
+        assert "AI provider" in exc_info.value.detail
 
 
 def test_timeout_exception_propagates():

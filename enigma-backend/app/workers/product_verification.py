@@ -64,6 +64,10 @@ class ProductVerificationWorker(Worker):
         "issues",
     ]
 
+    capabilities = [
+        "product_verification",
+    ]
+
     # Keep individual provider calls bounded.
     LLM_TIMEOUT_SECONDS = 30
 

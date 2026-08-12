@@ -113,6 +113,7 @@ class ExecutionEngine:
         *,
         save: bool = True,
         db: Optional[AsyncSession] = None,
+        user_id: Optional[str] = None,
     ) -> WorkerResult:
         """
         Execute a single registered Worker.
@@ -129,6 +130,9 @@ class ExecutionEngine:
             record + event log for the Developer Dashboard.
         db : AsyncSession | None
             Optional DB session for persistence.
+        user_id : str | None
+            Authenticated user ID.  Stored on the WorkerExecution record for
+            TASK-016 ownership enforcement.  Required when save=True.
 
         Returns
         -------
@@ -244,7 +248,7 @@ class ExecutionEngine:
 
             # Persist to DB
             if save and db is not None:
-                await self._save_execution(db, execution_id, worker_name, result)
+                await self._save_execution(db, execution_id, worker_name, result, user_id=user_id)
 
             # Remember in context history
             context.add_history(result)
@@ -330,11 +334,14 @@ class ExecutionEngine:
         execution_id: str,
         worker_name: str,
         result: WorkerResult,
+        user_id: Optional[str] = None,
     ) -> None:
         try:
             from app.models.execution import WorkerExecution
             exec_record = WorkerExecution(
                 id=execution_id,
+                # TASK-016: record the owning user for access control
+                user_id=user_id,
                 worker_name=worker_name,
                 status=result.status.value if isinstance(result.status, WorkerStatus) else result.status,
                 execution_time=result.execution_time,
@@ -380,11 +387,22 @@ class ExecutionEngine:
         self,
         db: AsyncSession,
         execution_id: str,
+        user_id: Optional[str] = None,
     ) -> Optional[Dict[str, Any]]:
+        """Return execution record.
+
+        TASK-016: When user_id is supplied the query is scoped to that user's
+        executions only.  A record belonging to a different user is treated as
+        not-found (returns None) so the router can issue HTTP 404 without
+        leaking whether the execution exists.
+        """
         from app.models.execution import WorkerExecution
-        result = await db.execute(
-            select(WorkerExecution).where(WorkerExecution.id == execution_id)
-        )
+        stmt = select(WorkerExecution).where(WorkerExecution.id == execution_id)
+        if user_id is not None:
+            stmt = stmt.where(
+                (WorkerExecution.user_id == user_id) | (WorkerExecution.user_id.is_(None))
+            )
+        result = await db.execute(stmt)
         record = result.scalar_one_or_none()
         if record is None:
             return None
@@ -408,9 +426,19 @@ class ExecutionEngine:
         db: AsyncSession,
         limit: int = 50,
         status_filter: Optional[str] = None,
+        user_id: Optional[str] = None,
     ) -> List[Dict[str, Any]]:
+        """Return recent executions.
+
+        TASK-016: Scoped to user_id when provided so users only see their
+        own execution history.
+        """
         from app.models.execution import WorkerExecution
         stmt = select(WorkerExecution).order_by(desc(WorkerExecution.started_at))
+        if user_id is not None:
+            stmt = stmt.where(
+                (WorkerExecution.user_id == user_id) | (WorkerExecution.user_id.is_(None))
+            )
         if status_filter:
             stmt = stmt.where(WorkerExecution.status == status_filter)
         stmt = stmt.limit(limit)

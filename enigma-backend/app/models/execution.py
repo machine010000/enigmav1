@@ -3,6 +3,8 @@ Database models for execution tracking (Developer Dashboard + Live Console).
 
 - WorkerExecution  : one row per worker execution (status, time, result, etc.)
 - WorkerEventLog   : one row per emitted event (for the dashboard logs panel)
+
+TASK-016: user_id added to WorkerExecution for per-user ownership enforcement.
 """
 import uuid
 from datetime import datetime
@@ -17,6 +19,8 @@ class WorkerExecution(Base):
     __tablename__ = "worker_executions"
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)  # execution_id
+    # TASK-016: ownership — every execution is owned by the requesting user
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True, index=True)
     worker_name = Column(String(255), nullable=False, index=True)
     status = Column(String(50), nullable=False, default="pending")
     result = Column(JSON, default=dict)

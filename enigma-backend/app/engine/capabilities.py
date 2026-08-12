@@ -61,6 +61,21 @@ class CapabilityRegistry:
             if cid not in self._capabilities:
                 self._capabilities[cid] = Capability(id=cid, description=f"Capability {cid}")
 
+    def register_worker_from_contract(self, worker_name: str, capabilities: List[str], description: str = "") -> None:
+        """
+        Register a worker's capabilities from its Worker contract.
+        
+        This is the preferred method for auto-registering capabilities from workers.
+        """
+        self._worker_capabilities[worker_name] = capabilities
+        for cap_id in capabilities:
+            if cap_id not in self._capabilities:
+                self._capabilities[cap_id] = Capability(
+                    id=cap_id,
+                    description=f"{description} - {cap_id}",
+                    category="worker",
+                )
+
     def get_capability(self, capability_id: str) -> Optional[Capability]:
         return self._capabilities.get(capability_id)
 
@@ -75,6 +90,23 @@ class CapabilityRegistry:
 
     def get_worker_capabilities(self, worker_name: str) -> List[str]:
         return self._worker_capabilities.get(worker_name, [])
+
+    def resolve_capability(self, capability_id: str) -> Optional[Dict[str, Any]]:
+        """
+        Resolve a capability to its worker and capability details.
+        
+        Returns:
+            Dict with 'worker_name' and 'capability' if found, None otherwise.
+        """
+        worker_name = self.find_worker_for_capability(capability_id)
+        if worker_name is None:
+            return None
+        
+        capability = self.get_capability(capability_id)
+        return {
+            "worker_name": worker_name,
+            "capability": capability.to_dict() if capability else None,
+        }
 
     def to_dict(self) -> Dict[str, Any]:
         return {

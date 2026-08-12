@@ -81,6 +81,12 @@ class Settings(BaseSettings):
     # Retry Policy
     MAX_RETRIES: int = int(os.getenv("MAX_RETRIES", "3"))
     RETRY_DELAY_SECONDS: int = int(os.getenv("RETRY_DELAY_SECONDS", "1"))
+
+    # Autonomous execution step budget (TASK-016)
+    # Range enforced: 1 – 5.  Client cannot exceed this.
+    MAX_AUTONOMOUS_STEPS: int = int(os.getenv("MAX_AUTONOMOUS_STEPS", "3"))
+    MIN_AUTONOMOUS_STEPS: int = 1
+    MAX_AUTONOMOUS_STEPS_LIMIT: int = 5  # hard ceiling, never raised by client
     
     @field_validator("ENVIRONMENT")
     @classmethod

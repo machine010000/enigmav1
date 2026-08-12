@@ -65,6 +65,10 @@ class MarketAnalysisWorker(Worker):
         "market_trends",
     ]
 
+    capabilities = [
+        "market_analysis",
+    ]
+
     # Keep individual provider calls bounded.
     LLM_TIMEOUT_SECONDS = 30
 

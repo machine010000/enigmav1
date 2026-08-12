@@ -208,6 +208,7 @@ class Worker(ABC):
         - ``input_schema``   : list of expected input keys (for discoverability)
         - ``output_schema``  : list of output keys the Worker produces
         - ``description``    : human-readable purpose
+        - ``capabilities``   : list of capability IDs this worker provides (for Brain resolution)
 
     The Worker receives an ExecutionContext and returns a WorkerResult.
     Workers ARE independently executable — they can be invoked directly
@@ -218,6 +219,7 @@ class Worker(ABC):
     description: str = ""
     input_schema: List[str] = []
     output_schema: List[str] = []
+    capabilities: List[str] = field(default_factory=list)
 
     @abstractmethod
     async def run(self, context: ExecutionContext) -> WorkerResult:

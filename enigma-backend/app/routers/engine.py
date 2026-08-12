@@ -170,6 +170,7 @@ async def execute_worker(
                 ctx,
                 save=True,  # Restore DB persistence
                 db=db,
+                user_id=str(current_user.id),
             ),
             timeout=120.0,
         )
@@ -188,11 +189,15 @@ async def get_execution(
     current_user=Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """TASK-001: Return full execution record."""
+    """TASK-001: Return full execution record.
+
+    TASK-016: Scoped to current_user — another user's execution returns 404.
+    """
 
     record = await engine.get_execution_record(
         db,
         execution_id,
+        user_id=str(current_user.id),
     )
 
     if record is None:
@@ -217,11 +222,15 @@ async def get_execution_result(
     current_user=Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """TASK-001: Return only the result payload."""
+    """TASK-001: Return only the result payload.
+
+    TASK-016: Scoped to current_user — another user's execution returns 404.
+    """
 
     record = await engine.get_execution_record(
         db,
         execution_id,
+        user_id=str(current_user.id),
     )
 
     if record is None:
@@ -242,11 +251,15 @@ async def get_execution_status(
     current_user=Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """TASK-001: Return only status and timing."""
+    """TASK-001: Return only status and timing.
+
+    TASK-016: Scoped to current_user — another user's execution returns 404.
+    """
 
     record = await engine.get_execution_record(
         db,
         execution_id,
+        user_id=str(current_user.id),
     )
 
     if record is None:
@@ -298,12 +311,16 @@ async def list_executions(
     current_user=Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """List recent execution records."""
+    """List recent execution records.
+
+    TASK-016: Scoped to current_user only.
+    """
 
     records = await engine.get_recent_executions(
         db,
         limit=limit,
         status_filter=status,
+        user_id=str(current_user.id),
     )
 
     return {
