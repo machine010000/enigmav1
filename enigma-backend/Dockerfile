@@ -8,7 +8,6 @@ COPY . .
 ENV PORT=8000
 EXPOSE $PORT
 # TASK-018: Run Alembic migrations before starting the server.
-# Use || true so migration failure does not prevent the app from starting.
-# The app handles missing columns gracefully (TASK-017 fallback).
+# Verify the deployed database revision and required columns, then start only on success.
 # This is idempotent — already-applied revisions are skipped.
-CMD ["sh", "-c", "alembic upgrade head || echo 'Migration warning — check logs'; exec uvicorn app.main:app --host 0.0.0.0 --port \"${PORT:-8000}\""]
+CMD ["sh", "-c", "alembic upgrade head && python -m app.core.migration_verify && exec uvicorn app.main:app --host 0.0.0.0 --port \"${PORT:-8000}\"\"]
