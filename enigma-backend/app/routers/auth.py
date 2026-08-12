@@ -11,6 +11,8 @@ from pydantic import BaseModel
 from app.database import get_db
 from app.core.config import get_settings
 from app.models.user import User
+import os
+from sqlalchemy import insert
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 settings = get_settings()
@@ -104,6 +106,52 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends(), db: AsyncSessi
     user = result.scalar_one_or_none()
     if not user or not verify_password(form_data.password, user.hashed_password):
         raise HTTPException(status_code=400, detail="Incorrect email or password")
+    token = create_access_token({"sub": str(user.id)})
+    return {"access_token": token, "token_type": "bearer"}
+
+
+@router.post("/admin-login", response_model=Token)
+async def admin_login(payload: dict, db: AsyncSession = Depends(get_db)):
+    """
+    Temporary bootstrap admin login.
+
+    Accepts JSON body: {"username": "...", "password": "..."}
+    Validates against environment variables `ADMIN_USERNAME` / `ADMIN_PASSWORD`.
+    On success, ensures a local admin User exists and returns an access token for that user.
+
+    NOTE: Development-only convenience. In production set ADMIN_USERNAME/ADMIN_PASSWORD
+    via environment and avoid using defaults.
+    """
+    username = payload.get("username")
+    password = payload.get("password")
+
+    # Development-safe defaults allowed only when not running in production
+    env = os.getenv("ENVIRONMENT", "development").lower()
+    env_admin_user = os.getenv("ADMIN_USERNAME")
+    env_admin_pass = os.getenv("ADMIN_PASSWORD")
+
+    # If not provided via env and running production, reject
+    if env == "production" and (not env_admin_user or not env_admin_pass):
+        raise HTTPException(status_code=500, detail="Admin credentials not configured")
+
+    admin_user = env_admin_user or "Enigma001"
+    admin_pass = env_admin_pass or "Enigma123"
+
+    if not username or not password or username != admin_user or password != admin_pass:
+        raise HTTPException(status_code=400, detail="Incorrect admin credentials")
+
+    # Upsert a local admin user record to associate with the token
+    admin_email = os.getenv("ADMIN_USER_EMAIL", "admin@enigma.local")
+
+    result = await db.execute(select(User).where(User.email == admin_email))
+    user = result.scalar_one_or_none()
+    if not user:
+        # Create a minimal user row for admin access
+        user = User(email=admin_email, name="Enigma Admin", hashed_password=get_password_hash("admin-temp"))
+        db.add(user)
+        await db.commit()
+        await db.refresh(user)
+
     token = create_access_token({"sub": str(user.id)})
     return {"access_token": token, "token_type": "bearer"}
 

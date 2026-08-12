@@ -63,11 +63,10 @@
     
     <!-- Environment Configuration -->
     <script>
-        // DEVELOPMENT: Set to local backend
-        // TEST: Set to test backend
-        // PRODUCTION: Set to deployed backend (REQUIRED - no localhost allowed)
-        window.ENIGMA_ENV = 'development'; // Change to 'test' or 'production' for other environments
-        window.ENIGMA_API_BASE = 'http://localhost:8000'; // Set to deployed backend URL in production
+        // Use production API base for remote E2E tests while running frontend locally
+        // Keep ENV as 'development' so local host is allowed by the frontend config.
+        window.ENIGMA_ENV = 'development';
+        window.ENIGMA_API_BASE = 'https://enigmav1-production.up.railway.app'; // Production Railway backend
         window.ENIGMA_USE_MOCK_DATA = false; // MUST be false in production
     </script>
 <base target="_blank">
@@ -121,6 +120,9 @@
                 <button onclick="skipAuth()" class="w-full mt-4 py-2 text-sm text-gray-500 hover:text-gray-300 transition">
                     تخطي (وضع التجربة)
                 </button>
+                <div class="mt-4 text-center">
+                    <button onclick="showPage('admin-login')" class="text-xs text-gray-400 hover:text-gray-200">Admin Login</button>
+                </div>
             </div>
         </div>
 

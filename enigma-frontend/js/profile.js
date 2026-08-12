@@ -19,28 +19,17 @@ let availableCapabilities = [];
  */
 export async function loadProfile() {
     try {
-        // TODO: Update to USER Contract endpoint when implemented
-        // Current: Using mock data structure
-        // Target: GET /api/profile
-        const profile = await apiCall('/api/user/profile');
+        // GET the Enigma operational profile
+        const profile = await apiCall('/api/enigma/profile');
         currentProfile = profile;
         renderProfile(profile);
         return profile;
     } catch (error) {
         console.error('Failed to load profile:', error);
-        
-        // PRODUCTION: Do not use mock data - show error
-        if (IS_PRODUCTION || !USE_MOCK_DATA) {
-            showToast('Failed to load profile. Backend may be unavailable.', 'error');
-            renderProfileError();
-            return null;
-        }
-        
-        // DEVELOPMENT ONLY: Use mock data for development
-        const mockProfile = getMockProfile();
-        currentProfile = mockProfile;
-        renderProfile(mockProfile);
-        return mockProfile;
+        // Do not fallback to mocks here - surface error to admin
+        showToast('Failed to load Enigma profile. Backend may be unavailable.', 'error');
+        renderProfileError();
+        return null;
     }
 }
 
@@ -208,7 +197,14 @@ function renderProfile(profile) {
     if (nameEl) nameEl.textContent = profile.name || 'Enigma';
     if (taglineEl) taglineEl.textContent = profile.tagline || 'Your AI Business Brain';
     if (professionEl) professionEl.textContent = profile.profession_focus || 'Not set';
-    if (readinessEl) readinessEl.textContent = `${(profile.overall_readiness * 100).toFixed(0)}%`;
+    // Compute overall readiness when backend does not provide explicit field
+    let overallReadiness = null;
+    if (typeof profile.overall_readiness === 'number') {
+        overallReadiness = profile.overall_readiness;
+    } else if (typeof profile.ready_for_freelance_count === 'number' && typeof profile.total_capabilities === 'number' && profile.total_capabilities > 0) {
+        overallReadiness = profile.ready_for_freelance_count / profile.total_capabilities;
+    }
+    if (readinessEl) readinessEl.textContent = overallReadiness !== null ? `${(overallReadiness * 100).toFixed(0)}%` : '-';
     
     // Render professions
     const professionsEl = document.getElementById('profile-professions');
@@ -319,6 +315,27 @@ function renderReadiness(readiness) {
             </div>
         </div>
     `).join('');
+}
+
+/**
+ * Render an error state for the profile page
+ */
+export function renderProfileError() {
+    const nameEl = document.getElementById('profile-name');
+    const taglineEl = document.getElementById('profile-tagline');
+    const capabilitiesEl = document.getElementById('profile-capabilities');
+    const professionsEl = document.getElementById('profile-professions');
+    const readinessEl = document.getElementById('profile-readiness');
+    const readinessScoresEl = document.getElementById('profile-readiness-scores');
+    const evidenceEl = document.getElementById('profile-evidence');
+
+    if (nameEl) nameEl.textContent = 'Unavailable';
+    if (taglineEl) taglineEl.textContent = 'Unable to load profile data';
+    if (professionsEl) professionsEl.innerHTML = '<div class="text-red-400 text-sm">Failed to load professions</div>';
+    if (capabilitiesEl) capabilitiesEl.innerHTML = '<div class="text-red-400 text-sm">Failed to load capabilities</div>';
+    if (readinessEl) readinessEl.textContent = '-';
+    if (readinessScoresEl) readinessScoresEl.innerHTML = '<div class="text-red-400 text-sm">Failed to load readiness scores</div>';
+    if (evidenceEl) evidenceEl.innerHTML = '<div class="text-red-400 text-sm">Failed to load evidence</div>';
 }
 
 /**

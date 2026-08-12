@@ -1,0 +1,23 @@
+<div id="page-admin-login" class="page min-h-screen flex items-center justify-center p-4">
+    <div class="glass-card p-8 w-full max-w-md">
+        <div class="text-center mb-6">
+            <h2 class="text-xl font-bold">Admin Login</h2>
+            <p class="text-gray-400 text-sm">Administrative access to ENIGMA profile</p>
+        </div>
+        <form id="admin-login-form" class="space-y-4">
+            <div>
+                <label class="block text-sm text-gray-400 mb-2">Username</label>
+                <input type="text" id="admin-username" class="input-field" placeholder="Admin username" required>
+            </div>
+            <div>
+                <label class="block text-sm text-gray-400 mb-2">Password</label>
+                <input type="password" id="admin-password" class="input-field" placeholder="Password" required>
+            </div>
+            <div id="admin-login-error" class="text-red-400 text-sm hidden"></div>
+            <button type="submit" id="admin-login-submit" class="btn-primary w-full">Sign in</button>
+        </form>
+        <p class="text-center text-sm text-gray-400 mt-4">
+            <a href="#" onclick="showPage('login')" class="text-brand-purple">Back to user login</a>
+        </p>
+    </div>
+</div>

@@ -81,3 +81,34 @@ export function initAuthForms() {
         } catch (e) {}
     });
 }
+
+// Admin login flow (temporary)
+export function initAdminLogin() {
+    // Attach to admin login form (loaded as a partial)
+    const form = document.getElementById('admin-login-form');
+    if (!form) return;
+    form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const submitBtn = document.getElementById('admin-login-submit');
+        const errEl = document.getElementById('admin-login-error');
+        errEl.classList.add('hidden');
+        const username = document.getElementById('admin-username').value;
+        const password = document.getElementById('admin-password').value;
+        try {
+            submitBtn.disabled = true;
+            const result = await apiCall('/auth/admin-login', {
+                method: 'POST',
+                body: { username, password }
+            });
+            localStorage.setItem('enigma_token', result.access_token);
+            await loadUser();
+            showToast('Admin login successful', 'success');
+            showPage('profile');
+        } catch (err) {
+            errEl.textContent = err.message || 'Login failed';
+            errEl.classList.remove('hidden');
+        } finally {
+            submitBtn.disabled = false;
+        }
+    });
+}

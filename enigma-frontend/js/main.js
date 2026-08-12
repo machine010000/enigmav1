@@ -1,5 +1,6 @@
 import { loadAllPartials, showPage } from './router.js';
 import { loadUser, logout, skipAuth, initAuthForms, getAuthToken } from './auth.js';
+import { initAdminLogin } from './auth.js';
 import { showAddProductModal, hideAddProductModal, selectProduct, initProductForms } from './products.js';
 import { initChat } from './chat.js';
 import { setUserType } from './userbrain.js';
@@ -36,6 +37,11 @@ window.showPage = (pageName) => {
     } else if (pageName === 'live-console') {
         initLiveConsole();
     } else if (pageName === 'profile') {
+        // Require authentication for admin/profile access
+        if (!getAuthToken()) {
+            showPage('admin-login');
+            return;
+        }
         loadProfile();
         loadEvidence();
         loadReadiness();
@@ -50,6 +56,7 @@ async function boot() {
     await loadAllPartials();
 
     initAuthForms();
+    initAdminLogin();
     initProductForms();
     initChat();
     initProfileForms();
