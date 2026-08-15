@@ -317,6 +317,7 @@ class KeywordResearchWorker(Worker):
         raw_keywords = llm_result["keywords"]
         parse_issues = llm_result["issues"]
         llm_confidence = llm_result["confidence"]
+        model_used = llm_result["model_used"]
 
         # TASK-018 Phase 17: if LLM returned no keywords due to timeout/error → FAILED immediately
         # Never write positive evidence on timeout or LLM failure
@@ -328,7 +329,12 @@ class KeywordResearchWorker(Worker):
             return WorkerResult(
                 worker_name=self.name,
                 status=WorkerStatus.FAILED,
-                result={"issues": parse_issues, "primary_keywords": [], "secondary_keywords": []},
+                result={
+                    "issues": parse_issues,
+                    "primary_keywords": [],
+                    "secondary_keywords": [],
+                    "model_used": model_used,
+                },
                 error=parse_issues[0] if parse_issues else "No keywords generated",
                 confidence=0.0,
                 llm_calls=llm_calls,
@@ -426,6 +432,7 @@ class KeywordResearchWorker(Worker):
                     "topic": topic,
                     "market": market,
                     "goal": goal,
+                    "model_used": model_used,
                 },
                 error=issue,
                 confidence=0.0,
@@ -511,6 +518,7 @@ class KeywordResearchWorker(Worker):
             "topic": topic,
             "market": market,
             "goal": goal,
+            "model_used": model_used,
         }
 
         return WorkerResult(
@@ -546,8 +554,10 @@ class KeywordResearchWorker(Worker):
         """
         # Lazy import to avoid circular dependency via app.engine.__init__
         from app.ai.gateway import gateway  # noqa: PLC0415
+        from app.core.config import get_settings  # noqa: PLC0415
 
         now = _iso_now()
+        settings = get_settings()
 
         seed_clause = ""
         if seed_keywords:
@@ -593,7 +603,8 @@ class KeywordResearchWorker(Worker):
                     system=system,
                     user=user,
                     temperature=0.2,
-                    max_tokens=1200,
+                    max_tokens=1000,
+                    model=settings.KEYWORD_RESEARCH_MODEL,
                 ),
                 timeout=LLM_TIMEOUT_SECONDS,
             )
@@ -618,6 +629,7 @@ class KeywordResearchWorker(Worker):
                     "issues": [],
                     "llm_calls": 1,
                     "timestamp": now,
+                    "model_used": settings.KEYWORD_RESEARCH_MODEL,
                 }
 
             # Parsed but wrong shape
@@ -627,6 +639,7 @@ class KeywordResearchWorker(Worker):
                 "issues": ["LLM response had unexpected shape — no keywords extracted"],
                 "llm_calls": 1,
                 "timestamp": now,
+                "model_used": settings.KEYWORD_RESEARCH_MODEL,
             }
 
         except asyncio.TimeoutError:
@@ -654,6 +667,7 @@ class KeywordResearchWorker(Worker):
                 ],
                 "llm_calls": 1,
                 "timestamp": now,
+                "model_used": settings.KEYWORD_RESEARCH_MODEL,
             }
 
         except Exception as exc:
@@ -678,6 +692,7 @@ class KeywordResearchWorker(Worker):
                 "issues": [f"LLM call failed: {type(exc).__name__}"],
                 "llm_calls": 1,
                 "timestamp": now,
+                "model_used": settings.KEYWORD_RESEARCH_MODEL,
             }
 
 

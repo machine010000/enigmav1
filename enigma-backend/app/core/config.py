@@ -27,6 +27,9 @@ class Settings(BaseSettings):
     NVIDIA_API_KEY: str = os.getenv("NVIDIA_API_KEY", "")
     NVIDIA_BASE_URL: Optional[str] = os.getenv("NVIDIA_BASE_URL", None)
     AI_MODEL: str = os.getenv("AI_MODEL", "meta/llama-3.3-70b-instruct")
+    KEYWORD_RESEARCH_MODEL: str = os.getenv(
+        "KEYWORD_RESEARCH_MODEL", "meta/llama-3.1-8b-instruct"
+    )
     AI_PROVIDER: str = os.getenv("AI_PROVIDER", "nvidia")
     
     # JWT

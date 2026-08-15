@@ -26,8 +26,19 @@ class LLMGateway:
         else:
             self._provider = NVIDIAProvider()
 
-    async def generate(self, system, user, *, temperature=0.7, max_tokens=1000, response_format=None):
-        return await self._provider.generate(system=system, user=user, temperature=temperature, max_tokens=max_tokens, response_format=response_format)
+    async def generate(self, system, user, *, temperature=0.7, max_tokens=1000, response_format=None, model=None):
+        options = {
+            "system": system,
+            "user": user,
+            "temperature": temperature,
+            "max_tokens": max_tokens,
+            "response_format": response_format,
+        }
+        if model is not None:
+            if not isinstance(self._provider, NVIDIAProvider):
+                raise ValueError("A model override is only supported by the NVIDIA provider")
+            options["model"] = model
+        return await self._provider.generate(**options)
 
     async def classify(self, system, user, *, temperature=0.1, max_tokens=256):
         return await self._provider.classify(system=system, user=user, temperature=temperature, max_tokens=max_tokens)

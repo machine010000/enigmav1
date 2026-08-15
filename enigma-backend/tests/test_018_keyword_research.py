@@ -665,6 +665,30 @@ def test_18e_worker_timeout_exceeds_provider_read_timeout():
 
 
 @pytest.mark.asyncio
+async def test_keyword_worker_uses_capability_model_and_bounded_tokens():
+    """TASK-040: keyword generation uses its configured smaller model only."""
+    worker = KeywordResearchWorker()
+    ctx = _make_context(topic="Consumer Electronics")
+    response = {
+        "choices": [{"message": {"content": (
+            '{"keywords":['
+            '{"keyword":"consumer electronics","intent":"commercial","relevance":0.9}'
+            '],"confidence":0.8}'
+        )}}]
+    }
+
+    with patch(
+        "app.ai.gateway.gateway.generate", new=AsyncMock(return_value=response)
+    ) as mock_generate:
+        result = await worker.run(ctx)
+
+    assert result.status == WorkerStatus.SUCCESS
+    assert mock_generate.await_args.kwargs["model"] == "meta/llama-3.1-8b-instruct"
+    assert mock_generate.await_args.kwargs["max_tokens"] == 1000
+    assert result.result["model_used"] == "meta/llama-3.1-8b-instruct"
+
+
+@pytest.mark.asyncio
 async def test_relevant_keyword_output_is_accepted():
     """TASK-039: target-relevant structured output remains positive evidence."""
     worker = KeywordResearchWorker()

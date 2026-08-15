@@ -61,6 +61,7 @@ class NVIDIAClient:
         temperature=0.7,
         max_tokens=1000,
         response_format=None,
+        model=None,
     ):
         # Validate configuration at request time
         missing = []
@@ -75,7 +76,7 @@ class NVIDIAClient:
             raise AIConfigurationError(f"NVIDIA client configuration missing: {', '.join(missing)}")
         
         payload = {
-            "model": self.model,
+            "model": model or self.model,
             "messages": messages,
             "temperature": temperature,
             "max_tokens": max_tokens,

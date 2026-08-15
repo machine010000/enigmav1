@@ -18,12 +18,15 @@ class NVIDIAProvider(LLMProvider):
         temperature: float = 0.7,
         max_tokens: int = 1000,
         response_format: Optional[dict] = None,
+        model: Optional[str] = None,
     ) -> Dict[str, Any]:
         messages = [
             {"role": "system", "content": system},
             {"role": "user", "content": user},
         ]
-        return await self._client.chat(messages, temperature, max_tokens, response_format)
+        return await self._client.chat(
+            messages, temperature, max_tokens, response_format, model
+        )
 
     async def classify(
         self,
