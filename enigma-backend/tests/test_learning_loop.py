@@ -116,6 +116,64 @@ class TestExecutionObservation:
         assert observation.status == ObservationStatus.FAILURE
         assert observation.confidence == 0.0
 
+    def test_timeout_error_cannot_become_successful_learning(self):
+        """TASK-037: an error-bearing result fails closed despite wrapper status."""
+        timeout_result = {
+            "status": "completed",
+            "result": {
+                "worker_name": "keyword_research",
+                "status": "failed",
+                "result": {
+                    "issues": ["LLM call timed out - no evidence written"],
+                    "primary_keywords": [],
+                    "secondary_keywords": [],
+                },
+                "confidence": 0.0,
+                "evidence": [],
+                "error": "LLM call timed out - no evidence written",
+                "execution_time": 28.0,
+                "llm_calls": 1,
+            },
+        }
+
+        observation = ExecutionObservation.from_worker_result(
+            execution_id=str(uuid4()),
+            user_id=str(uuid4()),
+            capability="keyword_research",
+            worker="keyword_research",
+            worker_result=timeout_result,
+        )
+
+        assert observation.status == ObservationStatus.FAILURE
+        assert observation.confidence == 0.0
+        assert observation.evidence == []
+
+    def test_explicit_meaningful_success_remains_successful_learning(self):
+        """TASK-037: the failure guard must preserve valid worker success."""
+        success_result = {
+            "worker_name": "keyword_research",
+            "status": "success",
+            "result": {
+                "primary_keywords": [{"keyword": "wireless headphones"}],
+                "secondary_keywords": [],
+            },
+            "confidence": 0.8,
+            "evidence": [{"field": "primary_keywords", "value": ["wireless headphones"]}],
+            "error": None,
+        }
+
+        observation = ExecutionObservation.from_worker_result(
+            execution_id=str(uuid4()),
+            user_id=str(uuid4()),
+            capability="keyword_research",
+            worker="keyword_research",
+            worker_result=success_result,
+        )
+
+        assert observation.status == ObservationStatus.SUCCESS
+        assert observation.confidence == 0.8
+        assert len(observation.evidence) == 1
+
 
 class TestEvidenceMapper:
     """TEST 2: Evidence persistence"""
@@ -252,6 +310,38 @@ class TestProfileUpdater:
         except Exception:
             # If it fails due to mock issues, skip this test
             pytest.skip("Async mock complexity - skipping")
+
+    @pytest.mark.asyncio
+    async def test_timeout_failure_cannot_gain_positive_competence(self, mock_db):
+        """TASK-037: failure evidence penalises confidence and never adds success."""
+        updater = ProfileUpdater()
+        progress = MagicMock()
+        progress.evidence_count = 20
+        progress.successful_execution_count = 20
+        progress.failed_execution_count = 0
+        progress.confidence = 0.9224
+        progress.execution_score = 0.8
+        progress.knowledge_score = 0.8
+        progress.evidence_score = 0.8
+        updater._get_or_create_knowledge_progress = AsyncMock(return_value=progress)
+
+        observation = ExecutionObservation(
+            execution_id=str(uuid4()),
+            user_id=str(uuid4()),
+            capability="keyword_research",
+            worker="keyword_research",
+            status=ObservationStatus.FAILURE,
+            confidence=0.0,
+            evidence=[],
+            error_category="provider_timeout",
+        )
+
+        assert await updater.update_capability_profile(observation, mock_db) is True
+        assert progress.evidence_count == 21
+        assert progress.successful_execution_count == 20
+        assert progress.failed_execution_count == 1
+        assert progress.confidence == pytest.approx(0.848608)
+        assert progress.confidence < 0.9224
 
 
 class TestFailureLearning:

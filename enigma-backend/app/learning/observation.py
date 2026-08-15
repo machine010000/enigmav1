@@ -88,11 +88,33 @@ class ExecutionObservation:
         Returns:
             ExecutionObservation
         """
-        status = ObservationStatus.SUCCESS
-        if worker_result.get("status") == "failed":
+        payload = worker_result
+        nested_result = worker_result.get("result")
+        if (
+            worker_result.get("status") == "completed"
+            and isinstance(nested_result, dict)
+            and "status" in nested_result
+            and ("worker_name" in nested_result or "error" in nested_result)
+        ):
+            payload = nested_result
+
+        raw_status = payload.get("status")
+        if hasattr(raw_status, "value"):
+            raw_status = raw_status.value
+        raw_status = str(raw_status or "").lower()
+
+        # TASK-037: WorkerResult is the canonical semantic outcome.  An error
+        # must fail closed even if an outer orchestration wrapper reported that
+        # the call itself "completed".  This prevents transport completion from
+        # becoming positive capability evidence.
+        if payload.get("error") or raw_status == "failed":
             status = ObservationStatus.FAILURE
-        elif worker_result.get("status") == "partial":
+        elif raw_status == "partial":
             status = ObservationStatus.PARTIAL
+        elif raw_status in {"success", "completed"}:
+            status = ObservationStatus.SUCCESS
+        else:
+            status = ObservationStatus.FAILURE
         
         return cls(
             execution_id=execution_id,
@@ -101,10 +123,10 @@ class ExecutionObservation:
             worker=worker,
             target_id=target_id,
             status=status,
-            result_summary=worker_result.get("result", {}),
-            evidence=worker_result.get("evidence", []),
-            confidence=worker_result.get("confidence", 0.0),
-            issues=worker_result.get("result", {}).get("issues", []),
-            execution_time=worker_result.get("execution_time", 0.0),
-            llm_calls=worker_result.get("llm_calls", 0),
+            result_summary=payload.get("result", {}),
+            evidence=payload.get("evidence", []),
+            confidence=payload.get("confidence", 0.0),
+            issues=payload.get("result", {}).get("issues", []),
+            execution_time=payload.get("execution_time", 0.0),
+            llm_calls=payload.get("llm_calls", 0),
         )
