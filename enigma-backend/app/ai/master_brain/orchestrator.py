@@ -280,6 +280,22 @@ class MasterBrain:
             product_id=product_id,
             extra_memory=decision.execution_input,
         )
+
+        # TASK-039: capability inputs must come from the authoritative,
+        # ownership-checked Product loaded by build_context.  Never allow the
+        # target UUID to masquerade as keyword_research's semantic topic.
+        if decision.capability == "keyword_research" and context.product:
+            product = context.product
+            semantic_topic = (
+                product.get("name")
+                or product.get("description")
+                or product.get("category")
+            )
+            if semantic_topic:
+                context.remember("topic", semantic_topic)
+            context.remember("target", dict(product))
+            if product.get("target_market"):
+                context.remember("market", product["target_market"])
         
         # Execute via Engine
         try:

@@ -550,7 +550,7 @@ class AutonomousOrchestrator:
         # Python class paths, or execution internals.
         decision = self.master_brain.decide_capability(
             message=message,
-            context={"product_id": context.get("target_id")},
+            context={"product_id": context.get("target_id"), "goal": goal},
         )
 
         return decision

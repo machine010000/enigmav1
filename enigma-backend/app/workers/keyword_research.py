@@ -148,6 +148,46 @@ def _priority_from_relevance(relevance: float) -> str:
     return "low"
 
 
+_CONTEXT_STOP_WORDS = {
+    "and", "the", "with", "for", "from", "this", "that", "product",
+    "verification", "controlled", "context", "global", "task",
+}
+
+
+def _semantic_tokens(value: str) -> set[str]:
+    """Extract stable topic terms without requiring exact phrase matches."""
+    tokens = {
+        token for token in re.findall(r"[a-z0-9]+", str(value).lower())
+        if len(token) >= 3 and token not in _CONTEXT_STOP_WORDS
+    }
+    expanded = set(tokens)
+    for token in tokens:
+        if token.endswith("ies") and len(token) > 4:
+            expanded.add(token[:-3] + "y")
+        elif token.endswith("s") and len(token) > 4:
+            expanded.add(token[:-1])
+    return expanded
+
+
+def _contextual_relevance(
+    keywords: List[Dict[str, Any]],
+    context_text: str,
+) -> Dict[str, Any]:
+    """Deterministically reject output unrelated to the requested context."""
+    context_tokens = _semantic_tokens(context_text)
+    matched = 0
+    for entry in keywords:
+        if _semantic_tokens(entry.get("keyword", "")).intersection(context_tokens):
+            matched += 1
+    required = max(1, min(3, (len(keywords) + 5) // 6)) if keywords else 1
+    return {
+        "passed": bool(context_tokens) and matched >= required,
+        "matched_keywords": matched,
+        "required_matches": required,
+        "score": round(matched / len(keywords), 4) if keywords else 0.0,
+    }
+
+
 def _build_keyword_entry(
     keyword: str,
     intent: str,
@@ -360,6 +400,41 @@ class KeywordResearchWorker(Worker):
             for i, c in intent_counts.items()
         }
 
+        target_context = " ".join(str(value or "") for value in (
+            topic,
+            context.product.get("name"),
+            context.product.get("description"),
+            context.product.get("category"),
+            context.product.get("subcategory"),
+            context.product.get("domain"),
+        ))
+        relevance_evaluation = _contextual_relevance(sorted_keywords, target_context)
+        if total and not relevance_evaluation["passed"]:
+            issue = (
+                "Generated keywords are not sufficiently relevant to the target context "
+                f"({relevance_evaluation['matched_keywords']}/"
+                f"{relevance_evaluation['required_matches']} required matches)"
+            )
+            return WorkerResult(
+                worker_name=self.name,
+                status=WorkerStatus.FAILED,
+                result={
+                    "issues": [*parse_issues, issue],
+                    "primary_keywords": [],
+                    "secondary_keywords": [],
+                    "context_relevance": relevance_evaluation,
+                    "topic": topic,
+                    "market": market,
+                    "goal": goal,
+                },
+                error=issue,
+                confidence=0.0,
+                llm_calls=llm_calls,
+                evidence=[],
+                started_at=started_at,
+                completed_at=datetime.utcnow(),
+            )
+
         # 5. Aggregate confidence
         if sorted_keywords:
             rel_scores = [k["relevance"] for k in sorted_keywords]
@@ -432,6 +507,7 @@ class KeywordResearchWorker(Worker):
             "total_found": total,
             "confidence": aggregate_confidence,
             "issues": issues,
+            "context_relevance": relevance_evaluation,
             "topic": topic,
             "market": market,
             "goal": goal,

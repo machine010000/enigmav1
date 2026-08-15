@@ -664,6 +664,51 @@ def test_18e_worker_timeout_exceeds_provider_read_timeout():
     assert LLM_TIMEOUT_SECONDS > HTTP_TIMEOUT.read
 
 
+@pytest.mark.asyncio
+async def test_relevant_keyword_output_is_accepted():
+    """TASK-039: target-relevant structured output remains positive evidence."""
+    worker = KeywordResearchWorker()
+    ctx = _make_context(topic="Wireless Bluetooth Headphones")
+    response = {
+        "choices": [{"message": {"content": (
+            '{"keywords":['
+            '{"keyword":"wireless bluetooth headphones","intent":"commercial","relevance":0.9},'
+            '{"keyword":"noise cancelling headphones","intent":"commercial","relevance":0.85}'
+            '],"confidence":0.8}'
+        )}}]
+    }
+
+    with patch("app.ai.gateway.gateway.generate", new=AsyncMock(return_value=response)):
+        result = await worker.run(ctx)
+
+    assert result.status == WorkerStatus.SUCCESS
+    assert result.evidence
+
+
+@pytest.mark.asyncio
+async def test_irrelevant_structural_output_is_rejected():
+    """TASK-039: generic marketing keywords cannot earn target competence."""
+    worker = KeywordResearchWorker()
+    ctx = _make_context(topic="Wireless Bluetooth Headphones")
+    response = {
+        "choices": [{"message": {"content": (
+            '{"keywords":['
+            '{"keyword":"social media strategy","intent":"informational","relevance":0.9},'
+            '{"keyword":"email marketing agency","intent":"commercial","relevance":0.85},'
+            '{"keyword":"content marketing tips","intent":"informational","relevance":0.8}'
+            '],"confidence":0.8}'
+        )}}]
+    }
+
+    with patch("app.ai.gateway.gateway.generate", new=AsyncMock(return_value=response)):
+        result = await worker.run(ctx)
+
+    assert result.status == WorkerStatus.FAILED
+    assert result.evidence == []
+    assert result.confidence == 0.0
+    assert "relevant" in (result.error or "").lower()
+
+
 # ---------------------------------------------------------------------------
 # Evidence quality tests (TASK-018 Phase 9)
 # ---------------------------------------------------------------------------

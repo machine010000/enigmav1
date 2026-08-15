@@ -11,7 +11,7 @@ from app.ai.master_brain import master_brain
 from app.ai.master_brain.models import BrainDecision, BrainAction
 from app.engine.capabilities import capability_registry
 from app.engine.engine import engine
-from app.engine.contracts import WorkerResult, WorkerStatus
+from app.engine.contracts import ExecutionContext, WorkerResult, WorkerStatus
 from app.engine.registry import register_all
 
 
@@ -169,6 +169,58 @@ class TestBrainEngineHandoff:
                 call_kwargs = mock_build.call_args.kwargs
                 # Should use target from decision (server-side) over execution_input
                 assert call_kwargs["product_id"] == "server-product-id"
+
+    @pytest.mark.asyncio
+    async def test_keyword_target_uses_authoritative_product_context(self):
+        """TASK-039: a target UUID must never become the semantic topic."""
+        product_id = "694a49de-c363-4a9c-aa17-67e80ae40fdb"
+        decision = BrainDecision(
+            action=BrainAction.EXECUTE_CAPABILITY,
+            intent="keyword_research",
+            capability="keyword_research",
+            target=product_id,
+            reasoning_summary="Research product keywords",
+            execution_required=True,
+            execution_input={"topic": product_id, "goal": "commercial"},
+            confidence=0.9,
+        )
+        context = ExecutionContext(
+            user={"id": "test-user-id"},
+            product={
+                "id": product_id,
+                "name": "Wireless Bluetooth Headphones",
+                "description": "Over-ear headphones with active noise cancellation",
+                "category": "Consumer Electronics",
+                "target_market": "global",
+            },
+            memory=dict(decision.execution_input),
+            execution_id="keyword-context-execution",
+        )
+
+        async def assert_context(worker_name, context, **kwargs):
+            actual_context = context
+            assert worker_name == "keyword_research"
+            assert actual_context.recall("topic") == "Wireless Bluetooth Headphones"
+            assert actual_context.recall("topic") != product_id
+            assert actual_context.recall("target")["id"] == product_id
+            assert actual_context.recall("market") == "global"
+            return WorkerResult(
+                worker_name="keyword_research",
+                status=WorkerStatus.SUCCESS,
+                result={"primary_keywords": [{"keyword": "wireless headphones"}]},
+                evidence=[{"field": "primary_keywords"}],
+                confidence=0.8,
+            )
+
+        with patch("app.ai.master_brain.orchestrator.build_context", return_value=context):
+            with patch.object(engine, "execute", new=AsyncMock(side_effect=assert_context)):
+                result = await master_brain.execute_decision(
+                    decision=decision,
+                    db=AsyncMock(spec=AsyncSession),
+                    user_id="test-user-id",
+                )
+
+        assert result["status"] == "completed"
     
     @pytest.mark.asyncio
     async def test_result_evaluation(self):
