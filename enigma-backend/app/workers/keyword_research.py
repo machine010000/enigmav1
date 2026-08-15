@@ -32,6 +32,7 @@ from __future__ import annotations
 import asyncio
 import json
 import re
+import time
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
@@ -47,14 +48,19 @@ from app.engine.contracts import (
     WorkerResult,
     WorkerStatus,
 )
+from app.core.logging_config import get_logger
+
+
+logger = get_logger(__name__)
 
 
 # ---------------------------------------------------------------------------
 # Constants
 # ---------------------------------------------------------------------------
 
-# Hard ceiling on the single LLM call — avoids Railway upstream timeouts
-LLM_TIMEOUT_SECONDS = 28
+# Bounded above the NVIDIA client's 120-second read timeout so the provider
+# layer, rather than this wrapper, classifies connect/read failures.
+LLM_TIMEOUT_SECONDS = 130
 
 # Keyword intent categories
 INTENT_COMMERCIAL = "commercial"
@@ -264,6 +270,7 @@ class KeywordResearchWorker(Worker):
             seed_keywords=seed_keywords,
             market=market,
             goal=goal,
+            execution_id=context.execution_id,
         )
 
         llm_calls = llm_result["llm_calls"]
@@ -452,11 +459,12 @@ class KeywordResearchWorker(Worker):
         seed_keywords: List[str],
         market: str,
         goal: str,
+        execution_id: str = "",
     ) -> Dict[str, Any]:
         """
         One structured LLM call to generate keyword candidates.
 
-        Hard timeout: LLM_TIMEOUT_SECONDS (28s).
+        Hard timeout: LLM_TIMEOUT_SECONDS (130s).
         On timeout or error: returns safe empty result with issue flag.
         Never creates false positive evidence on failure.
         """
@@ -502,6 +510,7 @@ class KeywordResearchWorker(Worker):
             f"{seed_clause}"
         )
 
+        request_started = time.monotonic()
         try:
             resp = await asyncio.wait_for(
                 gateway.generate(
@@ -546,6 +555,20 @@ class KeywordResearchWorker(Worker):
 
         except asyncio.TimeoutError:
             # TASK-018 Phase 17: timeout must never create false positive evidence
+            from app.core.config import get_settings  # noqa: PLC0415
+            settings = get_settings()
+            logger.error(
+                "keyword_research_provider_timeout execution_id=%s capability=%s "
+                "provider=%s model=%s failure_stage=worker_gateway_deadline "
+                "exception_type=TimeoutError elapsed_ms=%s worker_timeout_seconds=%s "
+                "provider_read_timeout_seconds=120.0",
+                execution_id,
+                self.capabilities[0],
+                settings.AI_PROVIDER,
+                settings.AI_MODEL,
+                round((time.monotonic() - request_started) * 1000),
+                LLM_TIMEOUT_SECONDS,
+            )
             return {
                 "keywords": [],
                 "confidence": 0.0,
@@ -558,6 +581,21 @@ class KeywordResearchWorker(Worker):
             }
 
         except Exception as exc:
+            from app.core.config import get_settings  # noqa: PLC0415
+            settings = get_settings()
+            logger.error(
+                "keyword_research_provider_failure execution_id=%s capability=%s "
+                "provider=%s model=%s failure_stage=provider_gateway "
+                "exception_type=%s elapsed_ms=%s worker_timeout_seconds=%s "
+                "provider_read_timeout_seconds=120.0",
+                execution_id,
+                self.capabilities[0],
+                settings.AI_PROVIDER,
+                settings.AI_MODEL,
+                type(exc).__name__,
+                round((time.monotonic() - request_started) * 1000),
+                LLM_TIMEOUT_SECONDS,
+            )
             return {
                 "keywords": [],
                 "confidence": 0.0,

@@ -655,6 +655,15 @@ async def test_18d_worker_handles_llm_timeout_gracefully():
     assert any("timed out" in str(issue).lower() for issue in result.result.get("issues", [result.error or ""]))
 
 
+def test_18e_worker_timeout_exceeds_provider_read_timeout():
+    """TASK-038: the worker must not cancel NVIDIA before its HTTP read limit."""
+    from app.ai.client import HTTP_TIMEOUT
+    from app.workers.keyword_research import LLM_TIMEOUT_SECONDS
+
+    assert HTTP_TIMEOUT.read == 120.0
+    assert LLM_TIMEOUT_SECONDS > HTTP_TIMEOUT.read
+
+
 # ---------------------------------------------------------------------------
 # Evidence quality tests (TASK-018 Phase 9)
 # ---------------------------------------------------------------------------
