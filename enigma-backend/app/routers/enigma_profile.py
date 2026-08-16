@@ -40,6 +40,11 @@ from app.freelancing.contracts import (
     ReadinessState,
 )
 from app.freelancing.assessment_service import OpportunityAssessmentService
+from app.freelancing.development_bridge import (
+    DevelopmentPlanError,
+    OpportunityDevelopmentBridge,
+    StaleDevelopmentPlanError,
+)
 from app.core.logging_config import get_logger
 
 logger = get_logger(__name__)
@@ -47,6 +52,7 @@ logger = get_logger(__name__)
 router = APIRouter(tags=["enigma_profile"])
 
 _assessment_service = OpportunityAssessmentService()
+_development_bridge = OpportunityDevelopmentBridge()
 
 
 # ---------------------------------------------------------------------------
@@ -99,6 +105,15 @@ class AssessmentResponse(BaseModel):
     execution_available_for_blocking: bool
     policy_overridden: bool
     reasoning_summary: str
+
+
+class DevelopmentPlanRequest(OpportunityAssessRequest):
+    opportunity_id: str = Field(..., min_length=1, max_length=200)
+    target_id: Optional[str] = None
+
+
+class DevelopmentPlanExecutionRequest(DevelopmentPlanRequest):
+    plan_id: str = Field(..., min_length=1, max_length=100)
 
 
 # ---------------------------------------------------------------------------
@@ -312,3 +327,89 @@ async def assess_existing_job(
         policy_overridden=decision.policy_overridden,
         reasoning_summary=assessment.reasoning_summary,
     )
+
+
+def _development_opportunity(
+    request: DevelopmentPlanRequest, user_id: str
+) -> FreelanceOpportunity:
+    app_mode = ApplicationMode.UNKNOWN
+    if request.application_mode:
+        try:
+            app_mode = ApplicationMode(request.application_mode.lower())
+        except ValueError:
+            pass
+    return FreelanceOpportunity(
+        opportunity_id=request.opportunity_id,
+        platform=request.platform,
+        external_id=request.external_id or request.opportunity_id,
+        title=request.title,
+        description=request.description,
+        budget_min=request.budget_min,
+        budget_max=request.budget_max,
+        currency=request.currency,
+        application_mode=app_mode,
+        required_skills=request.required_skills,
+        preferred_skills=request.preferred_skills,
+        user_id=user_id,
+    )
+
+
+@router.post("/api/freelancing/opportunities/development-plan")
+async def generate_opportunity_development_plan(
+    request: DevelopmentPlanRequest,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> Dict[str, Any]:
+    """Reassess authoritatively and return non-executing development actions."""
+    opportunity = _development_opportunity(request, str(current_user.id))
+    _, assessment, decision = await _assessment_service.assess(opportunity, db)
+    try:
+        plans = await _development_bridge.generate(
+            assessment=assessment, decision=decision, db=db,
+            user_id=str(current_user.id), target_id=request.target_id,
+        )
+    except DevelopmentPlanError:
+        raise HTTPException(status_code=404, detail="Owned target not found")
+    return {
+        "opportunity_id": opportunity.opportunity_id,
+        "assessment_readiness": assessment.readiness.value,
+        "decision": decision.decision.value,
+        "development_actions": [plan.to_dict() for plan in plans],
+    }
+
+
+@router.post("/api/freelancing/opportunities/development-plan/execute")
+async def execute_opportunity_development_plan(
+    request: DevelopmentPlanExecutionRequest,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> Dict[str, Any]:
+    """Explicitly execute one server-regenerated, policy-valid development action."""
+    opportunity = _development_opportunity(request, str(current_user.id))
+    _, assessment, decision = await _assessment_service.assess(opportunity, db)
+    try:
+        plans = await _development_bridge.generate(
+            assessment=assessment, decision=decision, db=db,
+            user_id=str(current_user.id), target_id=request.target_id,
+        )
+        plan = next((item for item in plans if item.plan_id == request.plan_id), None)
+        if plan is None:
+            raise StaleDevelopmentPlanError("plan is invalid or stale")
+        result = await _development_bridge.execute(
+            plan, db=db, user_id=str(current_user.id)
+        )
+    except StaleDevelopmentPlanError:
+        raise HTTPException(status_code=409, detail="Development plan is stale")
+    except DevelopmentPlanError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    return {
+        "plan_id": plan.plan_id,
+        "capability_id": plan.capability_id,
+        "training_mode": plan.recommended_training_mode,
+        "action": result.action,
+        "execution_id": result.execution_id,
+        "attempts_run": result.attempts_run,
+        "evaluation": result.evaluation.to_dict() if result.evaluation else None,
+        "capability_status": result.capability_status,
+        "reason": result.reason,
+    }
