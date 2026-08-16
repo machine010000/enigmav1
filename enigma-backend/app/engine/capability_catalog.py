@@ -59,6 +59,12 @@ class CatalogEntry:
     risk_level: str = "medium"
     # Optional synonyms used during requirement extraction / mapping
     aliases: List[str] = field(default_factory=list)
+    # Optional evidence-trust policy. None means no scheduled revalidation policy.
+    revalidation_interval_days: Optional[int] = None
+    minimum_revalidation_diversity: int = 1
+    routing_terms: List[str] = field(default_factory=list)
+    execution_input_fields: List[str] = field(default_factory=list)
+    routing_reason: str = ""
 
 
 # ---------------------------------------------------------------------------
@@ -124,6 +130,11 @@ _ENTRIES: List[CatalogEntry] = [
         freelance_readiness_threshold=0.65,
         risk_level="low",
         aliases=["keyword analysis", "keyword discovery", "search terms research"],
+        revalidation_interval_days=90,
+        minimum_revalidation_diversity=3,
+        routing_terms=["keyword", "keywords", "keyword research", "search terms"],
+        execution_input_fields=["topic", "seed_keywords", "market", "goal", "audience", "business_model"],
+        routing_reason="Keyword research will identify target search terms for the business or product.",
     ),
     CatalogEntry(
         capability_id="competitor_research",
@@ -131,10 +142,15 @@ _ENTRIES: List[CatalogEntry] = [
         description="Research and profile direct competitors in a given niche.",
         category="research",
         module="service_provider",
-        execution_available=False,
+        execution_available=True,
         freelance_readiness_threshold=0.65,
         risk_level="low",
         aliases=["competitive research", "competitor analysis"],
+        revalidation_interval_days=90,
+        minimum_revalidation_diversity=3,
+        routing_terms=["competitor research", "competitive research", "competitor analysis", "competitors"],
+        execution_input_fields=["business", "product", "industry", "market", "audience", "goal", "competitors"],
+        routing_reason="Competitor research will compare supplied market actors and identify strategic differentiation.",
     ),
     CatalogEntry(
         capability_id="social_media_strategy",
