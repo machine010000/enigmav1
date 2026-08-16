@@ -23,6 +23,10 @@ from app.models.enigma_profile import (
     DevelopmentPriority,
     Issue,
 )
+from app.models.capability_learning import (
+    SystemCapabilityProgress, CapabilityEvidenceContribution,
+    UserCapabilityContext, MemoryEpisodeRecord,
+)
 from app.models.marketplace import (
     MarketplaceAccountState,
     MarketplaceJob,
@@ -34,6 +38,7 @@ from app.models.oauth import (
     OAuthToken,
     OAuthState,
 )
+from app.models.controlled_application import ControlledApplicationPackageRecord
 
 __all__ = [
     "User", "Product", "MasterKnowledge", "OnboardingQuestion", "Decision",
@@ -41,8 +46,11 @@ __all__ = [
     "ProductAnalytics", "LearningFingerprint",
     "WorkerExecution", "WorkerEventLog",
     "EnigmaProfile", "KnowledgeProgress", "TrainingItem", "PlatformReadiness",
+    "SystemCapabilityProgress", "CapabilityEvidenceContribution",
+    "UserCapabilityContext", "MemoryEpisodeRecord",
     "DevelopmentPriority", "Issue",
     "MarketplaceAccountState", "MarketplaceJob", "MarketplaceJobAssessment",
     "MarketplaceApplication", "MarketplaceActiveWork",
     "OAuthToken", "OAuthState",
+    "ControlledApplicationPackageRecord",
 ]

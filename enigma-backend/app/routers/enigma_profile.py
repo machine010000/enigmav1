@@ -45,7 +45,24 @@ from app.freelancing.development_bridge import (
     OpportunityDevelopmentBridge,
     StaleDevelopmentPlanError,
 )
+from app.freelancing.controlled_application_package import (
+    ClaimGroundingError,
+    ControlledApplicationPackageService,
+    OwnershipError,
+    PackageNotFoundError,
+    ReadinessGateError,
+    ReviewStateError,
+    StaleReadinessError,
+)
 from app.core.logging_config import get_logger
+from app.learning.revalidation_service import (
+    CapabilityFreshnessView,
+    CapabilityNotFoundError,
+    CapabilityNotProvenError,
+    CapabilityRevalidationService,
+    RevalidationPersistenceError,
+    RevalidationResponseData,
+)
 
 logger = get_logger(__name__)
 
@@ -53,6 +70,8 @@ router = APIRouter(tags=["enigma_profile"])
 
 _assessment_service = OpportunityAssessmentService()
 _development_bridge = OpportunityDevelopmentBridge()
+_revalidation_service = CapabilityRevalidationService()
+_application_package_service = ControlledApplicationPackageService()
 
 
 # ---------------------------------------------------------------------------
@@ -89,6 +108,7 @@ class CapabilityProfileEntry(BaseModel):
     meets_threshold: bool
     category: str
     module: str
+    revalidation_available: bool = False
 
 
 class AssessmentResponse(BaseModel):
@@ -116,9 +136,82 @@ class DevelopmentPlanExecutionRequest(DevelopmentPlanRequest):
     plan_id: str = Field(..., min_length=1, max_length=100)
 
 
+class CapabilityFreshnessResponse(BaseModel):
+    capability: str
+    status: str
+    freshness: str
+    last_success_at: Optional[str]
+    last_verified: Optional[str]
+    revalidation_interval_days: int
+    stale_horizon_days: int
+    advanced_diversity: int
+    required_diversity: int
+    revalidation_required: bool
+
+
+class CapabilityRevalidationResponse(BaseModel):
+    capability: str
+    status_before: str
+    freshness_before: str
+    action: str
+    attempts_run: int
+    success: bool
+    evaluation_score: Optional[float]
+    status_after: str
+    freshness_after: str
+    confidence: float
+    evidence_count: int
+    stop_reason: Optional[str]
+
+
 # ---------------------------------------------------------------------------
 # Endpoints
 # ---------------------------------------------------------------------------
+
+@router.get(
+    "/api/enigma/profile/capabilities/{capability_id}/freshness",
+    response_model=CapabilityFreshnessResponse,
+)
+async def get_capability_freshness(
+    capability_id: str,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> CapabilityFreshnessResponse:
+    try:
+        view = await _revalidation_service.get_freshness(
+            db, str(current_user.id), capability_id
+        )
+        return CapabilityFreshnessResponse(**view.to_dict())
+    except CapabilityNotFoundError:
+        raise HTTPException(status_code=404, detail="Capability not found")
+    except Exception:
+        logger.exception("capability_freshness_failed", extra={"capability": capability_id})
+        raise HTTPException(status_code=500, detail="Unable to assess capability freshness")
+
+
+@router.post(
+    "/api/enigma/profile/capabilities/{capability_id}/revalidate",
+    response_model=CapabilityRevalidationResponse,
+)
+async def request_capability_revalidation(
+    capability_id: str,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> CapabilityRevalidationResponse:
+    try:
+        result = await _revalidation_service.request_revalidation(
+            db, str(current_user.id), capability_id
+        )
+        return CapabilityRevalidationResponse(**result.to_dict())
+    except CapabilityNotFoundError:
+        raise HTTPException(status_code=404, detail="Capability not found")
+    except CapabilityNotProvenError:
+        raise HTTPException(status_code=409, detail="Capability is not proven")
+    except RevalidationPersistenceError:
+        raise HTTPException(status_code=500, detail="Revalidation could not be completed")
+    except Exception:
+        logger.exception("capability_revalidation_failed", extra={"capability": capability_id})
+        raise HTTPException(status_code=500, detail="Revalidation could not be completed")
 
 @router.get("/api/enigma/profile")
 async def get_enigma_profile(
@@ -169,6 +262,7 @@ async def get_enigma_profile(
             "execution_available": entry.execution_available,
             "freelance_readiness_threshold": entry.freelance_readiness_threshold,
             "meets_threshold": confidence >= entry.freelance_readiness_threshold,
+            "revalidation_available": entry.revalidation_interval_days is not None,
         })
 
     return {
@@ -413,3 +507,238 @@ async def execute_opportunity_development_plan(
         "capability_status": result.capability_status,
         "reason": result.reason,
     }
+
+
+# ---------------------------------------------------------------------------
+# Application Package
+# ---------------------------------------------------------------------------
+
+class ApplicationPackageRequest(OpportunityAssessRequest):
+    """
+    Request to build a controlled application package.
+
+    opportunity_id  — caller-supplied ID for idempotency tracking (optional)
+    target_id       — authenticated-user-owned product ID (optional but preferred)
+    """
+    opportunity_id: Optional[str] = Field(None, max_length=200)
+    target_id: Optional[str] = Field(None, max_length=100)
+
+
+@router.post(
+    "/api/freelancing/opportunities/application-package",
+    status_code=status.HTTP_200_OK,
+)
+async def build_application_package(
+    request: ApplicationPackageRequest,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> Dict[str, Any]:
+    """
+    Build a controlled evidence-backed application package for a ready_to_apply
+    opportunity.
+
+    The server ALWAYS re-evaluates readiness server-side before building.
+    A client-supplied "ready_to_apply" value is never trusted — the current
+    profile state is the authoritative source.
+
+    Returns the package in READY_FOR_HUMAN_APPROVAL state.
+    Does NOT automatically submit, send, or apply to any platform.
+    Does NOT mutate learning or capability evidence.
+    Stops at the human approval boundary.
+    """
+    try:
+        package = await _application_package_service.build(
+            user=current_user,
+            opportunity_title=request.title,
+            opportunity_description=request.description,
+            platform=request.platform,
+            required_skills=request.required_skills,
+            opportunity_id=request.opportunity_id,
+            target_id=request.target_id,
+            db=db,
+        )
+    except ReadinessGateError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={
+                "error": "opportunity_not_ready",
+                "message": str(exc),
+                "decision": exc.decision,
+                "blocking_capability": exc.blocking_capability,
+            },
+        )
+    except OwnershipError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={
+                "error": "ownership_violation",
+                "message": str(exc),
+            },
+        )
+    except ClaimGroundingError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail={
+                "error": "claim_grounding_failed",
+                "message": str(exc),
+            },
+        )
+    except Exception as exc:
+        logger.exception(
+            "application_package_build_failed",
+            extra={"user_id": str(current_user.id), "error_type": type(exc).__name__},
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Application package build failed. Please try again.",
+        )
+
+    return package.to_dict()
+
+
+# ---------------------------------------------------------------------------
+# Application Package — read + review (TASK-051)
+# ---------------------------------------------------------------------------
+
+class PackageReviewRequest(BaseModel):
+    """Human review decision for a controlled application package."""
+    decision: str = Field(
+        ...,
+        description="'approve' or 'reject'",
+        pattern=r"^(approve|reject)$",
+    )
+    note: Optional[str] = Field(None, max_length=2000)
+    # Optional opportunity context for stale re-check on approve.
+    # If omitted the server uses the persisted opportunity_title/platform.
+    opportunity_description: Optional[str] = Field(None, max_length=5000)
+    required_skills: Optional[List[str]] = Field(None)
+
+
+@router.get(
+    "/api/freelancing/application-packages/{application_id}",
+    status_code=status.HTTP_200_OK,
+)
+async def get_application_package(
+    application_id: str,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> Dict[str, Any]:
+    """
+    Retrieve a controlled application package by ID.
+
+    Only the package owner can retrieve it.  Returns 404 for non-existent
+    or other-user packages (non-disclosure policy).
+    """
+    try:
+        package = await _application_package_service.get_by_id(
+            user=current_user,
+            application_id=application_id,
+            db=db,
+        )
+    except PackageNotFoundError:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Not found.")
+    except Exception as exc:
+        logger.exception(
+            "application_package_get_failed",
+            extra={"user_id": str(current_user.id), "error_type": type(exc).__name__},
+        )
+        raise HTTPException(status_code=500, detail="Retrieval failed.")
+    return package.to_dict()
+
+
+@router.get(
+    "/api/freelancing/application-packages",
+    status_code=status.HTTP_200_OK,
+)
+async def list_application_packages(
+    limit: int = 20,
+    offset: int = 0,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> Dict[str, Any]:
+    """
+    List authenticated user's controlled application packages.
+
+    Returns newest-first, paginated.  Never returns other users' packages.
+    """
+    packages = await _application_package_service.list_for_user(
+        user=current_user,
+        db=db,
+        limit=min(limit, 50),
+        offset=max(offset, 0),
+    )
+    return {
+        "packages": [p.to_dict() for p in packages],
+        "count": len(packages),
+        "limit": limit,
+        "offset": offset,
+    }
+
+
+@router.post(
+    "/api/freelancing/application-packages/{application_id}/review",
+    status_code=status.HTTP_200_OK,
+)
+async def review_application_package(
+    application_id: str,
+    request: PackageReviewRequest,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> Dict[str, Any]:
+    """
+    Apply a human review decision to a controlled application package.
+
+    Allowed decisions: 'approve' | 'reject'
+
+    APPROVE:
+      - Triggers a fresh server-side readiness re-assessment.
+      - If the opportunity is no longer ready_to_apply, returns 409 with
+        stale_readiness=true.  Package state remains READY_FOR_HUMAN_APPROVAL.
+      - If still ready, state transitions to APPROVED.
+      - Does NOT submit externally.
+
+    REJECT:
+      - No readiness re-check.
+      - State transitions to REJECTED immediately.
+      - Does NOT mutate learning.
+
+    Both transitions are permanent.  A second review on an already-reviewed
+    package returns 409.
+    """
+    try:
+        package = await _application_package_service.review(
+            user=current_user,
+            application_id=application_id,
+            decision=request.decision,
+            note=request.note,
+            db=db,
+            opportunity_description=request.opportunity_description,
+            required_skills=request.required_skills,
+        )
+    except PackageNotFoundError:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Not found.")
+    except StaleReadinessError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={
+                "error": "stale_readiness",
+                "message": str(exc),
+                "current_decision": exc.current_decision,
+                "stale_on_approval_attempt": True,
+            },
+        )
+    except ReviewStateError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={
+                "error": "invalid_state_transition",
+                "message": str(exc),
+            },
+        )
+    except Exception as exc:
+        logger.exception(
+            "application_package_review_failed",
+            extra={"user_id": str(current_user.id), "error_type": type(exc).__name__},
+        )
+        raise HTTPException(status_code=500, detail="Review failed.")
+    return package.to_dict()
