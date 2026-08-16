@@ -30,6 +30,7 @@ from datetime import datetime
 from typing import Any, Dict, List, Optional
 
 from app.ai.gateway import gateway
+from app.core.config import get_settings
 from app.engine.contracts import (
     ExecutionContext,
     EvidenceItem,
@@ -38,6 +39,9 @@ from app.engine.contracts import (
     WorkerResult,
     WorkerStatus,
 )
+
+
+settings = get_settings()
 
 
 class ProductVerificationWorker(Worker):
@@ -69,7 +73,7 @@ class ProductVerificationWorker(Worker):
     ]
 
     # Keep individual provider calls bounded.
-    LLM_TIMEOUT_SECONDS = 30
+    LLM_TIMEOUT_SECONDS = 130
 
     # ------------------------------------------------------------------
     # Helpers
@@ -170,6 +174,7 @@ class ProductVerificationWorker(Worker):
                 user=user,
                 temperature=temperature,
                 max_tokens=max_tokens,
+                model=settings.PRODUCT_VERIFICATION_MODEL,
             ),
             timeout=self.LLM_TIMEOUT_SECONDS,
         )
@@ -183,11 +188,12 @@ class ProductVerificationWorker(Worker):
         max_tokens: int,
     ) -> Dict[str, Any]:
         return await asyncio.wait_for(
-            gateway.classify(
+            gateway.generate(
                 system=system,
                 user=user,
                 temperature=temperature,
                 max_tokens=max_tokens,
+                model=settings.PRODUCT_VERIFICATION_MODEL,
             ),
             timeout=self.LLM_TIMEOUT_SECONDS,
         )
@@ -201,11 +207,12 @@ class ProductVerificationWorker(Worker):
         max_tokens: int,
     ) -> Dict[str, Any]:
         return await asyncio.wait_for(
-            gateway.extract(
+            gateway.generate(
                 system=system,
                 user=user,
                 temperature=temperature,
                 max_tokens=max_tokens,
+                model=settings.PRODUCT_VERIFICATION_MODEL,
             ),
             timeout=self.LLM_TIMEOUT_SECONDS,
         )

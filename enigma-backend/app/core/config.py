@@ -30,6 +30,9 @@ class Settings(BaseSettings):
     KEYWORD_RESEARCH_MODEL: str = os.getenv(
         "KEYWORD_RESEARCH_MODEL", "meta/llama-3.1-8b-instruct"
     )
+    PRODUCT_VERIFICATION_MODEL: str = os.getenv(
+        "PRODUCT_VERIFICATION_MODEL", "meta/llama-3.1-8b-instruct"
+    )
     AI_PROVIDER: str = os.getenv("AI_PROVIDER", "nvidia")
     
     # JWT
