@@ -39,6 +39,7 @@ from app.models.oauth import (
     OAuthState,
 )
 from app.models.controlled_application import ControlledApplicationPackageRecord
+from app.models.submission_intent import ApplicationSubmissionIntent
 
 __all__ = [
     "User", "Product", "MasterKnowledge", "OnboardingQuestion", "Decision",
@@ -53,4 +54,5 @@ __all__ = [
     "MarketplaceApplication", "MarketplaceActiveWork",
     "OAuthToken", "OAuthState",
     "ControlledApplicationPackageRecord",
+    "ApplicationSubmissionIntent",
 ]

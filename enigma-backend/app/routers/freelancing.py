@@ -5,7 +5,18 @@ from typing import Dict, List, Optional
 from uuid import uuid4
 
 from fastapi import APIRouter, HTTPException, status, Depends
+from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.auth.dependencies import get_current_user
+from app.database import get_db
+from app.freelancing.submission_intent_service import (
+    SubmissionIntentService,
+    IntentNotFoundError,
+    IntentEligibilityError,
+    IntentStateError,
+    IntentStaleReadinessError,
+)
+from app.models.user import User
 from app.work_market.models import (
     FreelanceJob,
     JobSource,
@@ -40,6 +51,9 @@ from app.work_market.decision_adapter import MockDecisionProvider
 from app.work_market.work_specification_adapter import MockWorkSpecificationProvider
 
 router = APIRouter(prefix="/api/freelancing", tags=["freelancing"])
+
+# Initialize submission intent service
+_submission_intent_service = SubmissionIntentService()
 
 # Initialize repositories
 platform_repository = InMemoryPlatformRepository()
@@ -362,6 +376,122 @@ async def get_capabilities() -> List[Dict]:
         })
     
     return capability_list
+
+
+# ---------------------------------------------------------------------------
+# TASK-052: Submission Intent API Endpoints
+# ---------------------------------------------------------------------------
+
+@router.post("/application-packages/{application_id}/submission-intent")
+async def create_submission_intent(
+    application_id: str,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> Dict:
+    """
+    Create or reuse a PENDING_EXTERNAL_SUBMISSION intent for an APPROVED application package.
+    
+    TASK-052: Safe boundary - no external submission occurs.
+    Eligibility requires: package exists, owned by user, state=APPROVED, fresh readiness passes.
+    """
+    try:
+        intent = await _submission_intent_service.create_intent(
+            user=current_user,
+            application_id=application_id,
+            db=db,
+        )
+        return intent.to_dict()
+    except IntentNotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except IntentEligibilityError as e:
+        raise HTTPException(
+            status_code=400,
+            detail={"error": str(e), "reason": e.reason},
+        )
+    except IntentStaleReadinessError as e:
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "error": str(e),
+                "current_decision": e.current_decision,
+                "reason": "stale_readiness",
+            },
+        )
+
+
+@router.get("/submission-intents/{submission_id}")
+async def get_submission_intent(
+    submission_id: str,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> Dict:
+    """
+    Get a specific submission intent by ID.
+    
+    TASK-052: Ownership-scoped - cross-user returns 404.
+    """
+    try:
+        intent = await _submission_intent_service.get_by_id(
+            user=current_user,
+            submission_id=submission_id,
+            db=db,
+        )
+        return intent.to_dict()
+    except IntentNotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+
+@router.get("/submission-intents")
+async def list_submission_intents(
+    limit: int = 20,
+    offset: int = 0,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> Dict:
+    """
+    List submission intents for the authenticated user.
+    
+    TASK-052: Ownership-scoped - only user's own intents.
+    """
+    intents = await _submission_intent_service.list_for_user(
+        user=current_user,
+        db=db,
+        limit=limit,
+        offset=offset,
+    )
+    return {
+        "intents": [intent.to_dict() for intent in intents],
+        "count": len(intents),
+        "limit": limit,
+        "offset": offset,
+    }
+
+
+@router.post("/submission-intents/{submission_id}/cancel")
+async def cancel_submission_intent(
+    submission_id: str,
+    note: Optional[str] = None,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> Dict:
+    """
+    Cancel a PENDING_EXTERNAL_SUBMISSION intent.
+    
+    TASK-052: Does NOT contact external platforms.
+    Only PENDING_EXTERNAL_SUBMISSION can be cancelled.
+    """
+    try:
+        intent = await _submission_intent_service.cancel_intent(
+            user=current_user,
+            submission_id=submission_id,
+            note=note,
+            db=db,
+        )
+        return intent.to_dict()
+    except IntentNotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except IntentStateError as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 
 # Helper endpoint for testing - add a sample job
