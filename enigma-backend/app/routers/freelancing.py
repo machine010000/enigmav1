@@ -7,7 +7,7 @@ from uuid import uuid4
 from fastapi import APIRouter, HTTPException, status, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.auth.dependencies import get_current_user
+from app.routers.auth import get_current_user
 from app.database import get_db
 from app.freelancing.submission_intent_service import (
     SubmissionIntentService,
