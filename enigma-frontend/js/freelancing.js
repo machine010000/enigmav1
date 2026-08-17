@@ -168,6 +168,230 @@ export async function loadJobDetail(jobId) {
 }
 
 /**
+ * Assess opportunity against ENIGMA profile
+ * @param {Object} opportunity - Opportunity data
+ * @returns {Promise<Object>} Assessment result
+ */
+export async function assessOpportunity(opportunity) {
+    try {
+        const assessment = await apiCall('/api/freelancing/opportunities/assess', {
+            method: 'POST',
+            body: opportunity
+        });
+        return assessment;
+    } catch (error) {
+        console.error('Failed to assess opportunity:', error);
+        showToast('Failed to assess opportunity. Backend may be unavailable.', 'error');
+        return null;
+    }
+}
+
+/**
+ * Generate development plan for opportunity
+ * @param {Object} opportunity - Opportunity data
+ * @param {string} targetId - Optional target ID
+ * @returns {Promise<Object>} Development plan
+ */
+export async function generateDevelopmentPlan(opportunity, targetId = null) {
+    try {
+        const body = {
+            ...opportunity,
+            target_id: targetId
+        };
+        const plan = await apiCall('/api/freelancing/opportunities/development-plan', {
+            method: 'POST',
+            body
+        });
+        return plan;
+    } catch (error) {
+        console.error('Failed to generate development plan:', error);
+        showToast('Failed to generate development plan. Backend may be unavailable.', 'error');
+        return null;
+    }
+}
+
+/**
+ * Execute development plan action
+ * @param {Object} opportunity - Opportunity data
+ * @param {string} planId - Plan ID
+ * @param {string} targetId - Optional target ID
+ * @returns {Promise<Object>} Execution result
+ */
+export async function executeDevelopmentAction(opportunity, planId, targetId = null) {
+    try {
+        const body = {
+            ...opportunity,
+            plan_id: planId,
+            target_id: targetId
+        };
+        const result = await apiCall('/api/freelancing/opportunities/development-plan/execute', {
+            method: 'POST',
+            body
+        });
+        showToast('Development action executed', 'success');
+        return result;
+    } catch (error) {
+        console.error('Failed to execute development action:', error);
+        showToast('Failed to execute development action. Backend may be unavailable.', 'error');
+        return null;
+    }
+}
+
+/**
+ * Build application package for opportunity
+ * @param {Object} opportunity - Opportunity data
+ * @param {string} opportunityId - Optional opportunity ID
+ * @param {string} targetId - Optional target ID
+ * @returns {Promise<Object>} Application package
+ */
+export async function buildApplicationPackage(opportunity, opportunityId = null, targetId = null) {
+    try {
+        const body = {
+            ...opportunity,
+            opportunity_id: opportunityId,
+            target_id: targetId
+        };
+        const package = await apiCall('/api/freelancing/opportunities/application-package', {
+            method: 'POST',
+            body
+        });
+        showToast('Application package created', 'success');
+        return package;
+    } catch (error) {
+        console.error('Failed to build application package:', error);
+        showToast('Failed to build application package. Backend may be unavailable.', 'error');
+        return null;
+    }
+}
+
+/**
+ * Load application package by ID
+ * @param {string} applicationId - Application ID
+ * @returns {Promise<Object>} Application package
+ */
+export async function loadApplicationPackage(applicationId) {
+    try {
+        const package = await apiCall(`/api/freelancing/application-packages/${applicationId}`);
+        return package;
+    } catch (error) {
+        console.error('Failed to load application package:', error);
+        showToast('Failed to load application package. Backend may be unavailable.', 'error');
+        return null;
+    }
+}
+
+/**
+ * List application packages
+ * @param {number} limit - Limit
+ * @param {number} offset - Offset
+ * @returns {Promise<Array>} List of packages
+ */
+export async function listApplicationPackages(limit = 20, offset = 0) {
+    try {
+        const packages = await apiCall(`/api/freelancing/application-packages?limit=${limit}&offset=${offset}`);
+        return packages;
+    } catch (error) {
+        console.error('Failed to list application packages:', error);
+        showToast('Failed to list application packages. Backend may be unavailable.', 'error');
+        return null;
+    }
+}
+
+/**
+ * Review application package (approve/reject)
+ * @param {string} applicationId - Application ID
+ * @param {boolean} approved - Approval decision
+ * @returns {Promise<Object>} Reviewed package
+ */
+export async function reviewApplicationPackage(applicationId, approved) {
+    try {
+        const package = await apiCall(`/api/freelancing/application-packages/${applicationId}/review`, {
+            method: 'POST',
+            body: { approved }
+        });
+        showToast(approved ? 'Package approved' : 'Package rejected', approved ? 'success' : 'info');
+        return package;
+    } catch (error) {
+        console.error('Failed to review application package:', error);
+        showToast('Failed to review application package. Backend may be unavailable.', 'error');
+        return null;
+    }
+}
+
+/**
+ * Create submission intent for approved package
+ * @param {string} applicationId - Application ID
+ * @returns {Promise<Object>} Submission intent
+ */
+export async function createSubmissionIntent(applicationId) {
+    try {
+        const intent = await apiCall(`/api/freelancing/application-packages/${applicationId}/submission-intent`, {
+            method: 'POST'
+        });
+        showToast('Submission intent created', 'success');
+        return intent;
+    } catch (error) {
+        console.error('Failed to create submission intent:', error);
+        showToast('Failed to create submission intent. Backend may be unavailable.', 'error');
+        return null;
+    }
+}
+
+/**
+ * Load submission intent by ID
+ * @param {string} submissionId - Submission ID
+ * @returns {Promise<Object>} Submission intent
+ */
+export async function loadSubmissionIntent(submissionId) {
+    try {
+        const intent = await apiCall(`/api/freelancing/submission-intents/${submissionId}`);
+        return intent;
+    } catch (error) {
+        console.error('Failed to load submission intent:', error);
+        showToast('Failed to load submission intent. Backend may be unavailable.', 'error');
+        return null;
+    }
+}
+
+/**
+ * List submission intents
+ * @param {number} limit - Limit
+ * @param {number} offset - Offset
+ * @returns {Promise<Object>} List of intents
+ */
+export async function listSubmissionIntents(limit = 20, offset = 0) {
+    try {
+        const intents = await apiCall(`/api/freelancing/submission-intents?limit=${limit}&offset=${offset}`);
+        return intents;
+    } catch (error) {
+        console.error('Failed to list submission intents:', error);
+        showToast('Failed to list submission intents. Backend may be unavailable.', 'error');
+        return null;
+    }
+}
+
+/**
+ * Cancel submission intent
+ * @param {string} submissionId - Submission ID
+ * @param {string} note - Optional cancellation note
+ * @returns {Promise<Object>} Cancelled intent
+ */
+export async function cancelSubmissionIntent(submissionId, note = null) {
+    try {
+        const intent = await apiCall(`/api/freelancing/submission-intents/${submissionId}/cancel`, {
+            method: 'POST',
+            body: { note }
+        });
+        showToast('Submission intent cancelled', 'success');
+        return intent;
+    } catch (error) {
+        console.error('Failed to cancel submission intent:', error);
+        showToast('Failed to cancel submission intent. Backend may be unavailable.', 'error');
+        return null;
+    }
+}
+
+/**
  * Load applications from backend
  * @returns {Promise<Array>} List of applications
  */
@@ -760,19 +984,19 @@ export function showFreelancingTab(tabName) {
     document.querySelectorAll('.freelancing-tab-content').forEach(tab => {
         tab.classList.add('hidden');
     });
-    
+
     // Remove active class from all tab buttons
     document.querySelectorAll('.freelancing-tab').forEach(btn => {
         btn.classList.remove('active', 'bg-brand-purple/20', 'text-brand-purple', 'border-brand-purple/50');
         btn.classList.add('bg-dark-800', 'text-gray-400', 'border-gray-700');
     });
-    
+
     // Show selected tab
     const selectedTab = document.getElementById(`freelancing-tab-${tabName}`);
     if (selectedTab) {
         selectedTab.classList.remove('hidden');
     }
-    
+
     // Add active class to selected button
     const buttons = document.querySelectorAll('.freelancing-tab');
     buttons.forEach(btn => {
@@ -781,13 +1005,373 @@ export function showFreelancingTab(tabName) {
             btn.classList.remove('bg-dark-800', 'text-gray-400', 'border-gray-700');
         }
     });
-    
+
     // Load data for the tab
     if (tabName === 'platforms') loadPlatforms();
     if (tabName === 'capabilities') loadCapabilities();
+    if (tabName === 'assessment') {
+        // Assessment form is static, no data load needed
+    }
+    if (tabName === 'packages') loadPackages();
+    if (tabName === 'intents') loadIntents();
     if (tabName === 'jobs') loadJobs();
     if (tabName === 'applications') loadApplications();
     if (tabName === 'active-work') loadActiveWork();
+}
+
+/**
+ * Run opportunity assessment
+ */
+export async function runAssessment() {
+    const title = document.getElementById('assessment-title').value;
+    const description = document.getElementById('assessment-description').value;
+    const platform = document.getElementById('assessment-platform').value;
+    const externalId = document.getElementById('assessment-external-id').value;
+    const skillsStr = document.getElementById('assessment-skills').value;
+    const requiredSkills = skillsStr.split(',').map(s => s.trim()).filter(s => s);
+
+    if (!title || !description) {
+        showToast('Please enter title and description', 'error');
+        return;
+    }
+
+    const opportunity = {
+        title,
+        description,
+        platform,
+        external_id: externalId || null,
+        required_skills: requiredSkills
+    };
+
+    const assessment = await assessOpportunity(opportunity);
+    if (assessment) {
+        renderAssessmentResult(assessment);
+    }
+}
+
+/**
+ * Render assessment result
+ * @param {Object} assessment - Assessment result
+ */
+function renderAssessmentResult(assessment) {
+    const resultEl = document.getElementById('assessment-result');
+    const contentEl = document.getElementById('assessment-result-content');
+
+    if (!resultEl || !contentEl) return;
+
+    resultEl.classList.remove('hidden');
+
+    const decision = assessment.decision || 'UNKNOWN';
+    const readiness = assessment.readiness || 'UNKNOWN';
+    const decisionColor = decision === 'READY_TO_APPLY' ? 'green' : decision === 'LEARN_FIRST' ? 'yellow' : 'red';
+
+    contentEl.innerHTML = `
+        <div class="space-y-4">
+            <div class="flex items-center justify-between">
+                <span class="font-semibold">Decision</span>
+                <span class="tag tag-${decisionColor}">${decision}</span>
+            </div>
+            <div class="flex items-center justify-between">
+                <span class="text-sm text-gray-400">Readiness</span>
+                <span class="text-sm">${readiness}</span>
+            </div>
+            ${assessment.missing_capabilities && assessment.missing_capabilities.length > 0 ? `
+                <div>
+                    <p class="text-sm text-gray-400 mb-2">Missing Capabilities</p>
+                    <div class="flex flex-wrap gap-2">
+                        ${assessment.missing_capabilities.map(cap => `<span class="tag tag-red text-xs">${cap}</span>`).join('')}
+                    </div>
+                </div>
+            ` : ''}
+            ${assessment.blocking_capability ? `
+                <div>
+                    <p class="text-sm text-gray-400 mb-2">Blocking Capability</p>
+                    <span class="tag tag-red text-xs">${assessment.blocking_capability}</span>
+                </div>
+            ` : ''}
+            ${decision === 'LEARN_FIRST' ? `
+                <button onclick="generateDevelopmentPlanFromAssessment()" class="btn-secondary text-xs py-2 px-4 mt-2">
+                    <i class="fas fa-graduation-cap ml-1"></i>Generate Development Plan
+                </button>
+            ` : ''}
+            ${decision === 'READY_TO_APPLY' ? `
+                <button onclick="buildPackageFromAssessment()" class="btn-primary text-xs py-2 px-4 mt-2">
+                    <i class="fas fa-box ml-1"></i>Build Application Package
+                </button>
+            ` : ''}
+        </div>
+    `;
+}
+
+/**
+ * Generate development plan from current assessment
+ */
+export async function generateDevelopmentPlanFromAssessment() {
+    const title = document.getElementById('assessment-title').value;
+    const description = document.getElementById('assessment-description').value;
+    const platform = document.getElementById('assessment-platform').value;
+    const externalId = document.getElementById('assessment-external-id').value;
+    const skillsStr = document.getElementById('assessment-skills').value;
+    const requiredSkills = skillsStr.split(',').map(s => s.trim()).filter(s => s);
+
+    const opportunity = {
+        title,
+        description,
+        platform,
+        external_id: externalId || null,
+        required_skills: requiredSkills
+    };
+
+    const plan = await generateDevelopmentPlan(opportunity);
+    if (plan) {
+        renderDevelopmentPlan(plan);
+    }
+}
+
+/**
+ * Render development plan
+ * @param {Object} plan - Development plan
+ */
+function renderDevelopmentPlan(plan) {
+    const contentEl = document.getElementById('assessment-result-content');
+    if (!contentEl) return;
+
+    const actions = plan.development_actions || [];
+
+    contentEl.innerHTML = `
+        <div class="space-y-4">
+            <h4 class="font-semibold">Development Plan</h4>
+            <p class="text-sm text-gray-400">Assessment: ${plan.assessment_readiness}</p>
+            <p class="text-sm text-gray-400">Decision: ${plan.decision}</p>
+            <div class="space-y-3 mt-4">
+                ${actions.map(action => `
+                    <div class="p-3 rounded-lg bg-dark-900 border border-gray-700">
+                        <div class="flex items-center justify-between mb-2">
+                            <span class="font-semibold text-sm">${action.capability_id}</span>
+                            <span class="tag tag-blue text-xs">${action.training_mode}</span>
+                        </div>
+                        <p class="text-xs text-gray-400 mb-2">${action.action}</p>
+                        <button onclick="executeDevelopmentActionFromPlan('${action.plan_id}')" class="btn-secondary text-xs py-1 px-3">
+                            <i class="fas fa-play ml-1"></i>Execute
+                        </button>
+                    </div>
+                `).join('')}
+            </div>
+        </div>
+    `;
+}
+
+/**
+ * Execute development action from plan
+ */
+export async function executeDevelopmentActionFromPlan(planId) {
+    const title = document.getElementById('assessment-title').value;
+    const description = document.getElementById('assessment-description').value;
+    const platform = document.getElementById('assessment-platform').value;
+    const externalId = document.getElementById('assessment-external-id').value;
+    const skillsStr = document.getElementById('assessment-skills').value;
+    const requiredSkills = skillsStr.split(',').map(s => s.trim()).filter(s => s);
+
+    const opportunity = {
+        title,
+        description,
+        platform,
+        external_id: externalId || null,
+        required_skills: requiredSkills
+    };
+
+    const result = await executeDevelopmentAction(opportunity, planId);
+    if (result) {
+        showToast('Development action executed successfully', 'success');
+        // Refresh profile to see updated capability status
+        const { loadProfile } = await import('./profile.js');
+        await loadProfile();
+    }
+}
+
+/**
+ * Build application package from current assessment
+ */
+export async function buildPackageFromAssessment() {
+    const title = document.getElementById('assessment-title').value;
+    const description = document.getElementById('assessment-description').value;
+    const platform = document.getElementById('assessment-platform').value;
+    const externalId = document.getElementById('assessment-external-id').value;
+    const skillsStr = document.getElementById('assessment-skills').value;
+    const requiredSkills = skillsStr.split(',').map(s => s.trim()).filter(s => s);
+
+    const opportunity = {
+        title,
+        description,
+        platform,
+        external_id: externalId || null,
+        required_skills: requiredSkills
+    };
+
+    const pkg = await buildApplicationPackage(opportunity, externalId);
+    if (pkg) {
+        showToast('Application package created successfully', 'success');
+        showFreelancingTab('packages');
+    }
+}
+
+/**
+ * Load application packages
+ */
+export async function loadPackages() {
+    const packages = await listApplicationPackages();
+    if (packages) {
+        renderPackages(packages);
+    }
+}
+
+/**
+ * Render application packages
+ * @param {Object} data - Packages data
+ */
+function renderPackages(data) {
+    const packagesEl = document.getElementById('packages-list');
+    if (!packagesEl) return;
+
+    const packages = data.packages || [];
+
+    if (packages.length === 0) {
+        packagesEl.innerHTML = '<div class="text-gray-500 text-sm">No application packages</div>';
+        return;
+    }
+
+    packagesEl.innerHTML = packages.map(pkg => `
+        <div class="p-4 rounded-lg bg-dark-800 border border-gray-700">
+            <div class="flex items-center justify-between mb-3">
+                <div>
+                    <p class="font-semibold">${pkg.opportunity_title}</p>
+                    <p class="text-xs text-gray-400">${pkg.platform} • ${pkg.application_id}</p>
+                </div>
+                <span class="tag tag-${getPackageStateColor(pkg.state)} text-xs">${pkg.state}</span>
+            </div>
+            <div class="flex items-center gap-4 text-xs text-gray-400 mb-3">
+                <div>Created: <span class="text-gray-300">${new Date(pkg.created_at).toLocaleString()}</span></div>
+                <div>Readiness: <span class="text-gray-300">${pkg.readiness_decision}</span></div>
+            </div>
+            ${pkg.state === 'READY_FOR_HUMAN_APPROVAL' ? `
+                <div class="flex gap-2">
+                    <button onclick="reviewPackage('${pkg.application_id}', true)" class="btn-primary text-xs py-2 px-4 flex-1">
+                        <i class="fas fa-check ml-1"></i>Approve
+                    </button>
+                    <button onclick="reviewPackage('${pkg.application_id}', false)" class="btn-secondary text-xs py-2 px-4 flex-1">
+                        <i class="fas fa-times ml-1"></i>Reject
+                    </button>
+                </div>
+            ` : ''}
+            ${pkg.state === 'APPROVED' ? `
+                <button onclick="createIntentFromPackage('${pkg.application_id}')" class="btn-primary text-xs py-2 px-4 w-full">
+                    <i class="fas fa-paper-plane ml-1"></i>Create Submission Intent
+                </button>
+            ` : ''}
+        </div>
+    `).join('');
+}
+
+/**
+ * Get package state color
+ */
+function getPackageStateColor(state) {
+    const colors = {
+        'READY_FOR_HUMAN_APPROVAL': 'yellow',
+        'APPROVED': 'green',
+        'REJECTED': 'red'
+    };
+    return colors[state] || 'gray';
+}
+
+/**
+ * Review application package
+ */
+export async function reviewPackage(applicationId, approved) {
+    const pkg = await reviewApplicationPackage(applicationId, approved);
+    if (pkg) {
+        loadPackages();
+    }
+}
+
+/**
+ * Create submission intent from package
+ */
+export async function createIntentFromPackage(applicationId) {
+    const intent = await createSubmissionIntent(applicationId);
+    if (intent) {
+        showToast('Submission intent created successfully', 'success');
+        showFreelancingTab('intents');
+    }
+}
+
+/**
+ * Load submission intents
+ */
+export async function loadIntents() {
+    const intents = await listSubmissionIntents();
+    if (intents) {
+        renderIntents(intents);
+    }
+}
+
+/**
+ * Render submission intents
+ * @param {Object} data - Intents data
+ */
+function renderIntents(data) {
+    const intentsEl = document.getElementById('intents-list');
+    if (!intentsEl) return;
+
+    const intents = data.intents || [];
+
+    if (intents.length === 0) {
+        intentsEl.innerHTML = '<div class="text-gray-500 text-sm">No submission intents</div>';
+        return;
+    }
+
+    intentsEl.innerHTML = intents.map(intent => `
+        <div class="p-4 rounded-lg bg-dark-800 border border-gray-700">
+            <div class="flex items-center justify-between mb-3">
+                <div>
+                    <p class="font-semibold">${intent.opportunity_title}</p>
+                    <p class="text-xs text-gray-400">${intent.platform} • ${intent.submission_id}</p>
+                </div>
+                <span class="tag tag-${getIntentStateColor(intent.state)} text-xs">${intent.state}</span>
+            </div>
+            <div class="flex items-center gap-4 text-xs text-gray-400 mb-3">
+                <div>Created: <span class="text-gray-300">${new Date(intent.created_at).toLocaleString()}</span></div>
+                <div>External: <span class="text-gray-300">${intent.external_submission_attempted ? 'Yes' : 'No'}</span></div>
+            </div>
+            ${intent.state === 'PENDING_EXTERNAL_SUBMISSION' ? `
+                <button onclick="cancelIntent('${intent.submission_id}')" class="btn-secondary text-xs py-2 px-4 w-full">
+                    <i class="fas fa-times ml-1"></i>Cancel Intent
+                </button>
+            ` : ''}
+        </div>
+    `).join('');
+}
+
+/**
+ * Get intent state color
+ */
+function getIntentStateColor(state) {
+    const colors = {
+        'PENDING_EXTERNAL_SUBMISSION': 'blue',
+        'CANCELLED': 'gray'
+    };
+    return colors[state] || 'gray';
+}
+
+/**
+ * Cancel submission intent
+ */
+export async function cancelIntent(submissionId) {
+    const note = prompt('Enter cancellation note (optional):');
+    const intent = await cancelSubmissionIntent(submissionId, note);
+    if (intent) {
+        loadIntents();
+    }
 }
 
 /**

@@ -16,6 +16,9 @@
             <button onclick="showFreelancingTab('overview')" class="freelancing-tab active px-4 py-2 rounded-lg text-sm font-semibold bg-brand-purple/20 text-brand-purple border border-brand-purple/50">Overview</button>
             <button onclick="showFreelancingTab('platforms')" class="freelancing-tab px-4 py-2 rounded-lg text-sm font-semibold bg-dark-800 text-gray-400 border border-gray-700 hover:border-brand-purple/50 transition">Platforms</button>
             <button onclick="showFreelancingTab('capabilities')" class="freelancing-tab px-4 py-2 rounded-lg text-sm font-semibold bg-dark-800 text-gray-400 border border-gray-700 hover:border-brand-purple/50 transition">Capabilities</button>
+            <button onclick="showFreelancingTab('assessment')" class="freelancing-tab px-4 py-2 rounded-lg text-sm font-semibold bg-dark-800 text-gray-400 border border-gray-700 hover:border-brand-purple/50 transition">Assessment</button>
+            <button onclick="showFreelancingTab('packages')" class="freelancing-tab px-4 py-2 rounded-lg text-sm font-semibold bg-dark-800 text-gray-400 border border-gray-700 hover:border-brand-purple/50 transition">Packages</button>
+            <button onclick="showFreelancingTab('intents')" class="freelancing-tab px-4 py-2 rounded-lg text-sm font-semibold bg-dark-800 text-gray-400 border border-gray-700 hover:border-brand-purple/50 transition">Intents</button>
             <button onclick="showFreelancingTab('jobs')" class="freelancing-tab px-4 py-2 rounded-lg text-sm font-semibold bg-dark-800 text-gray-400 border border-gray-700 hover:border-brand-purple/50 transition">Jobs</button>
             <button onclick="showFreelancingTab('applications')" class="freelancing-tab px-4 py-2 rounded-lg text-sm font-semibold bg-dark-800 text-gray-400 border border-gray-700 hover:border-brand-purple/50 transition">Applications</button>
             <button onclick="showFreelancingTab('active-work')" class="freelancing-tab px-4 py-2 rounded-lg text-sm font-semibold bg-dark-800 text-gray-400 border border-gray-700 hover:border-brand-purple/50 transition">Active Work</button>
@@ -105,6 +108,82 @@
                 </div>
                 <div id="capabilities-list" class="space-y-4">
                     <div class="text-gray-500 text-sm">Loading capabilities...</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Assessment Tab -->
+        <div id="freelancing-tab-assessment" class="freelancing-tab-content hidden">
+            <div class="glass-card p-6 mb-6">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="font-bold text-lg">Opportunity Assessment</h3>
+                    <span class="text-xs text-gray-400">Profile → Assessment → Gap → Development Plan</span>
+                </div>
+                <div id="assessment-form" class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-semibold mb-2">Opportunity Title</label>
+                        <input type="text" id="assessment-title" class="w-full p-3 rounded-lg bg-dark-800 border border-gray-700 text-white" placeholder="Enter job title">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-semibold mb-2">Description</label>
+                        <textarea id="assessment-description" class="w-full p-3 rounded-lg bg-dark-800 border border-gray-700 text-white" rows="4" placeholder="Enter job description"></textarea>
+                    </div>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-semibold mb-2">Platform</label>
+                            <select id="assessment-platform" class="w-full p-3 rounded-lg bg-dark-800 border border-gray-700 text-white">
+                                <option value="controlled_internal">Controlled Internal</option>
+                                <option value="upwork">Upwork</option>
+                                <option value="freelancer">Freelancer</option>
+                                <option value="fiverr">Fiverr</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-semibold mb-2">External ID (optional)</label>
+                            <input type="text" id="assessment-external-id" class="w-full p-3 rounded-lg bg-dark-800 border border-gray-700 text-white" placeholder="External job ID">
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-semibold mb-2">Required Skills (comma-separated)</label>
+                        <input type="text" id="assessment-skills" class="w-full p-3 rounded-lg bg-dark-800 border border-gray-700 text-white" placeholder="python, testing, api">
+                    </div>
+                    <button onclick="runAssessment()" class="btn-primary w-full">
+                        <i class="fas fa-search ml-1"></i>Assess Opportunity
+                    </button>
+                </div>
+                <div id="assessment-result" class="mt-6 hidden">
+                    <h4 class="font-semibold mb-3">Assessment Result</h4>
+                    <div id="assessment-result-content" class="p-4 rounded-lg bg-dark-800 border border-gray-700"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Packages Tab -->
+        <div id="freelancing-tab-packages" class="freelancing-tab-content hidden">
+            <div class="glass-card p-6 mb-6">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="font-bold text-lg">Application Packages</h3>
+                    <button onclick="loadPackages()" class="btn-secondary text-xs py-2 px-4">
+                        <i class="fas fa-sync ml-1"></i>Refresh
+                    </button>
+                </div>
+                <div id="packages-list" class="space-y-4">
+                    <div class="text-gray-500 text-sm">Loading packages...</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Intents Tab -->
+        <div id="freelancing-tab-intents" class="freelancing-tab-content hidden">
+            <div class="glass-card p-6 mb-6">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="font-bold text-lg">Submission Intents</h3>
+                    <button onclick="loadIntents()" class="btn-secondary text-xs py-2 px-4">
+                        <i class="fas fa-sync ml-1"></i>Refresh
+                    </button>
+                </div>
+                <div id="intents-list" class="space-y-4">
+                    <div class="text-gray-500 text-sm">Loading intents...</div>
                 </div>
             </div>
         </div>
