@@ -206,6 +206,12 @@ class ExpertDomainAdapter:
         ]
 
 
+class _MockDomain:
+    """Simple domain object for mock adapter."""
+    def __init__(self, domain_id: str):
+        self.domain_id = domain_id
+
+
 class MockExpertDomainAdapter(ExpertDomainAdapter):
     """
     Mock implementation of ExpertDomainAdapter for testing.
@@ -218,6 +224,10 @@ class MockExpertDomainAdapter(ExpertDomainAdapter):
         # Don't call parent init to avoid real domain lookup
         self._domain_id = "seo"
         self._domain = None
+
+    def get_active_domain(self) -> Optional[Any]:
+        """Return mock active domain."""
+        return _MockDomain(self._domain_id)
 
     def get_domain_capabilities(self, profession: str = "default") -> List[str]:
         """Return mock capabilities."""
