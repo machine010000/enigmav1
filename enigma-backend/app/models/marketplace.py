@@ -148,6 +148,13 @@ class MarketplaceJob(Base):
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     synced_at = Column(DateTime, nullable=True)  # Last sync with platform
 
+    # Durable opportunity lifecycle and ingestion identity.
+    lifecycle_status = Column(String(50), nullable=False, default="verification_pending", server_default="verification_pending", index=True)
+    identity_fingerprint = Column(String(64), nullable=True, index=True)
+    first_seen_at = Column(DateTime, nullable=False, default=datetime.utcnow, server_default="now()")
+    last_seen_at = Column(DateTime, nullable=False, default=datetime.utcnow, server_default="now()")
+    ingestion_source = Column(String(100), nullable=True)
+
     # Indexes
     __table_args__ = (
         Index("ix_marketplace_jobs_profile_platform_job_id", "profile_id", "platform", "platform_job_id", unique=True),
@@ -183,6 +190,18 @@ class MarketplaceJobAssessment(Base):
     assessed_at = Column(DateTime, default=datetime.utcnow)
     assessment_version = Column(String, default="1.0")
     assessment_metadata = Column("metadata", JSON, default=dict)
+
+    # Structured TASK-017 readiness evidence. No opaque reasoning is stored.
+    readiness = Column(String(50), nullable=True)
+    decision = Column(String(50), nullable=True)
+    required_capabilities = Column(JSON, default=list)
+    missing_capabilities = Column(JSON, default=list)
+    weak_capabilities = Column(JSON, default=list)
+    unmapped_skills = Column(JSON, default=list)
+    risk_flags = Column(JSON, default=list)
+    reasoning_summary = Column(Text, nullable=True)
+    blocking_capability = Column(String(255), nullable=True)
+    execution_available_for_blocking = Column(Boolean, nullable=True)
     
     # Timestamps
     created_at = Column(DateTime, default=datetime.utcnow)

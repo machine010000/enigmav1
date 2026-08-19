@@ -29,6 +29,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
 from app.models.user import User
+from app.models.marketplace import MarketplaceJob, MarketplaceJobAssessment
 from app.models.enigma_profile import KnowledgeProgress, EnigmaProfile, CapabilityStatus
 from app.routers.auth import get_current_user
 from app.engine.capability_catalog import capability_catalog
@@ -368,25 +369,23 @@ async def assess_existing_job(
     Extends /api/freelancing/jobs/{job_id}/assessment with structured
     NOT_READY / LEARN_FIRST / READY_TO_APPLY classification.
     """
-    from app.work_market.repositories import InMemoryJobRepository
-
-    # The existing router uses an in-memory repository (global singleton)
-    # Import the same instance used by the freelancing router
-    from app.routers.freelancing import job_repository
-
-    job = job_repository.get_job(job_id)
+    job = await db.scalar(select(MarketplaceJob).where(
+        MarketplaceJob.job_id == job_id,
+        MarketplaceJob.profile_id == str(current_user.id),
+    ))
     if not job:
         raise HTTPException(status_code=404, detail=f"Job '{job_id}' not found")
 
     opportunity = FreelanceOpportunity(
         opportunity_id=job_id,
-        platform=job.source.value,
+        platform=job.platform,
         external_id=job_id,
         title=job.title,
         description=job.description,
-        budget_max=job.budget,
+        budget_min=float(job.budget_min) if job.budget_min is not None else None,
+        budget_max=float(job.budget_max) if job.budget_max is not None else None,
         currency=job.currency,
-        required_skills=job.skills,
+        required_skills=job.skills_required or [],
         user_id=str(current_user.id),
     )
 
@@ -405,6 +404,33 @@ async def assess_existing_job(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Assessment failed. Please try again.",
         )
+
+    existing = await db.scalar(select(MarketplaceJobAssessment).where(
+        MarketplaceJobAssessment.job_id == job_id,
+        MarketplaceJobAssessment.profile_id == str(current_user.id),
+    ))
+    if existing is None:
+        existing = MarketplaceJobAssessment(profile_id=str(current_user.id), job_id=job_id)
+        db.add(existing)
+    existing.overall_readiness_score = assessment.overall_score
+    existing.recommended_action = decision.decision.value
+    existing.assessed_at = assessment.assessed_at
+    existing.readiness = assessment.readiness.value
+    existing.decision = decision.decision.value
+    existing.required_capabilities = [m.to_dict() for m in assessment.capability_matches if m.required]
+    existing.missing_capabilities = assessment.missing_capabilities
+    existing.weak_capabilities = assessment.weak_capabilities
+    existing.unmapped_skills = assessment.unmapped_skills
+    existing.risk_flags = assessment.risk_flags
+    existing.reasoning_summary = assessment.reasoning_summary
+    existing.blocking_capability = decision.blocking_capability
+    existing.execution_available_for_blocking = decision.execution_available
+    job.lifecycle_status = {
+        "ready_to_apply": "ready",
+        "high_confidence": "ready",
+        "learn_first": "training_required",
+        "not_ready": "knowledge_missing",
+    }.get(assessment.readiness.value, "verification_pending")
 
     return AssessmentResponse(
         opportunity_id=assessment.opportunity_id,

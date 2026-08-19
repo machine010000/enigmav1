@@ -5,6 +5,7 @@ from typing import Dict, List, Optional
 from uuid import uuid4
 
 from fastapi import APIRouter, HTTPException, status, Depends
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.routers.auth import get_current_user
@@ -17,6 +18,7 @@ from app.freelancing.submission_intent_service import (
     IntentStaleReadinessError,
 )
 from app.models.user import User
+from app.models.marketplace import MarketplaceJob, MarketplaceJobAssessment
 from app.work_market.models import (
     FreelanceJob,
     JobSource,
@@ -64,6 +66,36 @@ assessment_repository = InMemoryJobAssessmentRepository()
 application_repository = InMemoryApplicationRepository()
 active_work_repository = InMemoryActiveWorkRepository()
 
+
+def _durable_job_dict(job: MarketplaceJob, assessment: Optional[MarketplaceJobAssessment] = None) -> Dict:
+    return {
+        "job_id": job.job_id,
+        "source": job.platform,
+        "title": job.title,
+        "description": job.description,
+        "client_information": job.client_info or {},
+        "budget": float(job.budget_max) if job.budget_max is not None else None,
+        "budget_min": float(job.budget_min) if job.budget_min is not None else None,
+        "budget_max": float(job.budget_max) if job.budget_max is not None else None,
+        "currency": job.currency,
+        "deadline": job.deadline.isoformat() if job.deadline else None,
+        "skills": job.skills_required or [],
+        "source_url": job.url or "",
+        "discovered_at": job.first_seen_at.isoformat() if job.first_seen_at else None,
+        "last_seen_at": job.last_seen_at.isoformat() if job.last_seen_at else None,
+        "lifecycle_status": job.lifecycle_status,
+        "platform_job_id": job.platform_job_id,
+        "metadata": job.job_metadata or {},
+        "assessment": {
+            "readiness": assessment.readiness,
+            "decision": assessment.decision,
+            "overall_readiness_score": assessment.overall_readiness_score,
+            "missing_capabilities": assessment.missing_capabilities or [],
+            "updated_at": assessment.updated_at.isoformat() if assessment.updated_at else None,
+        } if assessment else None,
+    }
+
+
 # Initialize services with providers
 platform_registry = PlatformRegistry()
 knowledge_provider = MockKnowledgeProvider()
@@ -83,7 +115,7 @@ draft_generator = ApplicationDraftGenerator()
 
 
 @router.get("/")
-async def get_freelancing_overview() -> Dict:
+async def get_freelancing_overview(current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)) -> Dict:
     """
     Get freelancing workspace overview.
     
@@ -92,13 +124,14 @@ async def get_freelancing_overview() -> Dict:
     platforms = platform_registry.get_all_platforms()
     connected_platforms = [p for p in platforms if p.connection_status.value == "connected"]
     
+    jobs_discovered = await db.scalar(select(func.count(MarketplaceJob.id)).where(MarketplaceJob.profile_id == str(current_user.id)))
     return {
         "status": "active",
         "platforms_connected": len(connected_platforms),
         "platforms_total": len(platforms),
         "capabilities_ready": 3,  # TODO: Get from expert domain
         "overall_readiness": 0.78,  # TODO: Calculate from actual data
-        "jobs_discovered": len(job_repository.get_all_jobs()),
+        "jobs_discovered": int(jobs_discovered or 0),
         "applications_total": len(application_repository.get_all_applications()),
     }
 
@@ -126,99 +159,110 @@ async def get_platform(platform_id: str) -> Dict:
 
 
 @router.get("/jobs")
-async def get_jobs() -> List[Dict]:
+async def get_jobs(current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)) -> List[Dict]:
     """
     Get all discovered jobs.
     
     Returns list of jobs with their basic information.
     """
-    jobs = job_repository.get_all_jobs()
-    return [job.to_dict() for job in jobs]
+    jobs = (await db.execute(
+        select(MarketplaceJob).where(MarketplaceJob.profile_id == str(current_user.id)).order_by(MarketplaceJob.last_seen_at.desc())
+    )).scalars().all()
+    return [_durable_job_dict(job) for job in jobs]
 
 
 @router.get("/jobs/{job_id}")
-async def get_job(job_id: str) -> Dict:
+async def get_job(job_id: str, current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)) -> Dict:
     """
     Get a specific job by ID.
     
     Returns full job details including classification and evaluation.
     """
-    job = job_repository.get_job(job_id)
+    job = await db.scalar(select(MarketplaceJob).where(MarketplaceJob.job_id == job_id, MarketplaceJob.profile_id == str(current_user.id)))
     if not job:
         raise HTTPException(status_code=404, detail=f"Job {job_id} not found")
     
-    classification = classification_repository.get_classification(job_id)
-    evaluation = evaluation_repository.get_evaluation(job_id)
-    assessment = assessment_repository.get_assessment(job_id)
+    assessment = await db.scalar(select(MarketplaceJobAssessment).where(MarketplaceJobAssessment.job_id == job_id, MarketplaceJobAssessment.profile_id == str(current_user.id)))
     
     return {
-        "job": job.to_dict(),
-        "classification": classification.to_dict() if classification else None,
-        "evaluation": evaluation.to_dict() if evaluation else None,
-        "assessment": assessment.to_dict() if assessment else None,
+        "job": _durable_job_dict(job, assessment),
+        "classification": None,
+        "evaluation": None,
+        "assessment": {
+            "readiness": assessment.readiness,
+            "decision": assessment.decision,
+            "overall_readiness_score": assessment.overall_readiness_score,
+            "required_capabilities": assessment.required_capabilities or [],
+            "missing_capabilities": assessment.missing_capabilities or [],
+            "weak_capabilities": assessment.weak_capabilities or [],
+            "unmapped_skills": assessment.unmapped_skills or [],
+            "risk_flags": assessment.risk_flags or [],
+            "reasoning_summary": assessment.reasoning_summary or "",
+            "blocking_capability": assessment.blocking_capability,
+        } if assessment else None,
     }
 
 
 @router.get("/jobs/{job_id}/assessment")
-async def get_job_assessment(job_id: str) -> Dict:
+async def get_job_assessment(job_id: str, current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)) -> Dict:
     """
     Get job readiness assessment.
     
     Returns Enigma's assessment of job readiness including blockers and risks.
     """
-    job = job_repository.get_job(job_id)
+    job = await db.scalar(select(MarketplaceJob).where(MarketplaceJob.job_id == job_id, MarketplaceJob.profile_id == str(current_user.id)))
     if not job:
         raise HTTPException(status_code=404, detail=f"Job {job_id} not found")
     
-    assessment = assessment_repository.get_assessment(job_id)
+    assessment = await db.scalar(select(MarketplaceJobAssessment).where(MarketplaceJobAssessment.job_id == job_id, MarketplaceJobAssessment.profile_id == str(current_user.id)))
     if not assessment:
-        # Generate assessment on-demand
-        classification = classification_repository.get_classification(job_id)
-        evaluation = evaluation_repository.get_evaluation(job_id)
-        
-        if not classification or not evaluation:
-            raise HTTPException(
-                status_code=400,
-                detail="Job must be classified and evaluated before assessment"
-            )
-        
-        assessment = readiness_service.assess_readiness(job, classification, evaluation)
-        assessment_repository.save_assessment(assessment)
-    
-    return assessment.to_dict()
+        raise HTTPException(status_code=404, detail="No durable assessment exists for this job")
+    return {
+        "job_id": assessment.job_id,
+        "readiness": assessment.readiness,
+        "decision": assessment.decision,
+        "overall_readiness_score": assessment.overall_readiness_score,
+        "required_capabilities": assessment.required_capabilities or [],
+        "missing_capabilities": assessment.missing_capabilities or [],
+        "weak_capabilities": assessment.weak_capabilities or [],
+        "unmapped_skills": assessment.unmapped_skills or [],
+        "risk_flags": assessment.risk_flags or [],
+        "reasoning_summary": assessment.reasoning_summary or "",
+        "assessed_at": assessment.assessed_at.isoformat() if assessment.assessed_at else None,
+    }
 
 
 @router.post("/jobs/{job_id}/research")
-async def start_job_research(job_id: str) -> Dict:
+async def start_job_research(job_id: str, current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)) -> Dict:
     """
     Start research for a job.
     
     Triggers research process to fill knowledge gaps.
     Returns research status and learning requirements.
     """
-    job = job_repository.get_job(job_id)
+    job = await db.scalar(select(MarketplaceJob).where(MarketplaceJob.job_id == job_id, MarketplaceJob.profile_id == str(current_user.id)))
     if not job:
         raise HTTPException(status_code=404, detail=f"Job {job_id} not found")
     
-    assessment = assessment_repository.get_assessment(job_id)
+    assessment = await db.scalar(select(MarketplaceJobAssessment).where(MarketplaceJobAssessment.job_id == job_id, MarketplaceJobAssessment.profile_id == str(current_user.id)))
     if not assessment:
         raise HTTPException(status_code=400, detail="Job must be assessed first")
     
     # Generate learning requirements
-    classification = classification_repository.get_classification(job_id)
-    evaluation = evaluation_repository.get_evaluation(job_id)
-    
-    if not classification or not evaluation:
-        raise HTTPException(status_code=400, detail="Job must be classified and evaluated first")
-    
-    learning_requirements = learning_analyzer.create_learning_requirement(evaluation)
+    learning_requirements = {
+        "job_id": job_id,
+        "missing_capabilities": assessment.missing_capabilities or [],
+        "research_tasks": [],
+        "academy_modules": [],
+        "priority": "medium",
+    }
     
     # TODO: Integrate with Knowledge Governance to trigger actual research
     
     return {
         "job_id": job_id,
         "research_status": "initiated",
-        "learning_requirements": learning_requirements.to_dict() if learning_requirements else None,
+        "learning_requirements": learning_requirements,
         "message": "Research initiated. Check back for updates.",
     }
 
