@@ -1,0 +1,9 @@
+"use client";
+
+import Link from "next/link";
+import { useLocale } from "../i18n/provider";
+
+export function LandingContent() {
+  const { locale } = useLocale();
+  return <><section className="hero"><div><div className="eyebrow">{locale.hero.eyebrow}</div><h1>{locale.hero.title}</h1><p className="hero-copy">{locale.hero.copy}</p><div className="hero-actions"><Link className="action primary" href="/login">{locale.hero.primary}</Link><Link className="action secondary" href="#modules">{locale.hero.secondary}</Link></div></div><div className="orbit" aria-hidden="true"><span className="orbit-note one">CLARITY</span><span className="orbit-note two">MOMENTUM</span><span className="orbit-note three">PURPOSE</span><div className="orbit-core">Your work<br />has a shape.</div></div></section><section className="section" id="modules"><div className="section-heading"><h2>{locale.modules.title}</h2><p>{locale.modules.copy}</p></div><div className="module-grid"><Link className="module" href="/app/freelancing"><span className="module-index">01 / OPEN</span><span><h3>{locale.modules.freelancing}</h3><p>{locale.modules.freelancingCopy}</p></span><span className="module-link">Open workspace →</span></Link><Link className="module" href="/app/freelancing/academy"><span className="module-index">02 / OPEN</span><span><h3>{locale.modules.academy}</h3><p>{locale.modules.academyCopy}</p></span><span className="module-link">Open workspace →</span></Link><Link className="module" href="/app/freelancing/creativity"><span className="module-index">03 / OPEN</span><span><h3>{locale.modules.creativity}</h3><p>{locale.modules.creativityCopy}</p></span><span className="module-link">Open workspace →</span></Link><Link className="module" href="/app/branding-selling"><span className="module-index">04 / SOON</span><span><h3>{locale.modules.branding}</h3><p>{locale.modules.brandingCopy}</p></span><span className="module-link">Reserved →</span></Link></div></section></>;
+}
