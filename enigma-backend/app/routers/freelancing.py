@@ -154,20 +154,11 @@ class ManualOpportunityUpdate(BaseModel):
     customer_preferred_language: Optional[Literal["ar", "en", "es", "fr"]] = None
     proposal_language: Optional[Literal["ar", "en", "es", "fr"]] = None
     translation_metadata: Optional[Dict[str, Any]] = None
-    lifecycle_status: Optional[str] = None
 
     @field_validator("source_url")
     @classmethod
     def validate_update_url(cls, value: Optional[str]) -> Optional[str]:
         return normalize_source_url(value)
-
-    @field_validator("lifecycle_status")
-    @classmethod
-    def validate_lifecycle(cls, value: Optional[str]) -> Optional[str]:
-        if value is not None and value not in MANUAL_LIFECYCLES:
-            raise ValueError("Invalid lifecycle status")
-        return value
-
 
 class ManualSubmissionRequest(BaseModel):
     marketplace_proposal_id: Optional[str] = Field(None, max_length=200)
@@ -193,6 +184,7 @@ def _manual_job_dict(job: MarketplaceJob, submission: Optional[ManualOpportunity
         "source_language": job.source_language, "customer_preferred_language": job.customer_preferred_language,
         "proposal_language": job.proposal_language, "translation_metadata": job.translation_metadata or {},
         "created_by_user_id": job.created_by_user_id,
+        "proposal_application_id": job.proposal_application_id,
         "submission": ({
             "marketplace_proposal_id": submission.marketplace_proposal_id,
             "submitted_at": submission.submitted_at.isoformat(),
@@ -200,6 +192,7 @@ def _manual_job_dict(job: MarketplaceJob, submission: Optional[ManualOpportunity
             "submitted_price": float(submission.submitted_price) if submission.submitted_price is not None else None,
             "currency": submission.currency, "delivery_estimate": submission.delivery_estimate,
             "outcome_status": submission.outcome_status, "admin_notes": submission.admin_notes,
+            "application_id": submission.application_id, "submission_intent_id": submission.submission_intent_id,
         } if submission else None),
     })
     return data
@@ -412,11 +405,18 @@ async def create_manual_opportunity(
         job = await _manual_intake_service.create(
             db, actor_id=str(current_user.id), data=request.model_dump(exclude={"analyze"}), analyze=request.analyze,
         )
+        if request.analyze:
+            from app.routers.enigma_profile import assess_existing_job
+            await assess_existing_job(job.job_id, current_user, db, commit=False)
+            _manual_intake_service.transition(job, "analyzed")
+        await db.commit()
+        await db.refresh(job)
     except DuplicateOpportunityError as exc:
+        await db.rollback()
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail={"code": "duplicate_opportunity", "existing_job_id": exc.existing_job_id})
-    if request.analyze:
-        await analyze_manual_opportunity(job.job_id, current_user, db)
-        job = await _manual_intake_service.get(db, job.job_id)
+    except Exception:
+        await db.rollback()
+        raise
     return _manual_job_dict(job)
 
 
@@ -424,7 +424,12 @@ async def create_manual_opportunity(
 async def list_manual_opportunities(
     current_user: User = Depends(require_admin_user), db: AsyncSession = Depends(get_db),
 ) -> List[Dict[str, Any]]:
-    return [_manual_job_dict(job) for job in await _manual_intake_service.list(db)]
+    jobs = await _manual_intake_service.list(db)
+    submissions = (await db.execute(select(ManualOpportunitySubmission).where(
+        ManualOpportunitySubmission.profile_id == "enigma_profile",
+    ))).scalars().all()
+    by_job = {item.job_id: item for item in submissions}
+    return [_manual_job_dict(job, by_job.get(job.job_id)) for job in jobs]
 
 
 @router.get("/manual/{job_id}")
@@ -459,10 +464,15 @@ async def update_manual_opportunity(
     if min_budget is not None and max_budget is not None and min_budget > max_budget:
         raise HTTPException(status_code=422, detail="budget_min cannot exceed budget_max")
     try:
-        return _manual_job_dict(await _manual_intake_service.update(db, job=job, data=data))
+        updated = await _manual_intake_service.update(db, job=job, data=data)
+        await db.commit()
+        await db.refresh(updated)
+        return _manual_job_dict(updated)
     except DuplicateOpportunityError as exc:
+        await db.rollback()
         raise HTTPException(status_code=409, detail={"code": "duplicate_opportunity", "existing_job_id": exc.existing_job_id})
     except ManualOpportunityStateError as exc:
+        await db.rollback()
         raise HTTPException(status_code=409, detail=str(exc))
 
 
@@ -474,9 +484,15 @@ async def analyze_manual_opportunity(
     if not job:
         raise HTTPException(status_code=404, detail="Manual opportunity not found")
     from app.routers.enigma_profile import assess_existing_job
-    result = await assess_existing_job(job_id, current_user, db)
-    job.lifecycle_status = "analyzed"
-    await db.commit()
+    if job.lifecycle_status != "ready_for_analysis":
+        raise HTTPException(status_code=409, detail=f"Invalid lifecycle transition: {job.lifecycle_status} -> analyzed")
+    try:
+        result = await assess_existing_job(job_id, current_user, db, commit=False)
+        _manual_intake_service.transition(job, "analyzed")
+        await db.commit()
+    except Exception:
+        await db.rollback()
+        raise
     return result.model_dump() if hasattr(result, "model_dump") else result
 
 
@@ -495,7 +511,8 @@ async def prepare_manual_proposal_package(
         )
     except ReadinessGateError as exc:
         raise HTTPException(status_code=409, detail={"code": "opportunity_not_ready", "decision": exc.decision})
-    job.lifecycle_status = "proposal_prepared"
+    _manual_intake_service.transition(job, "proposal_prepared")
+    job.proposal_application_id = package.application_id
     await db.commit()
     return package.to_dict()
 
@@ -510,7 +527,10 @@ async def record_manual_submission(
         raise HTTPException(status_code=404, detail="Manual opportunity not found")
     try:
         record = await _manual_intake_service.record_submission(db, job=job, actor_id=str(current_user.id), data=request.model_dump())
+        await db.commit()
+        await db.refresh(record)
     except ManualOpportunityStateError as exc:
+        await db.rollback()
         raise HTTPException(status_code=409, detail=str(exc))
     return _manual_job_dict(job, record)
 
@@ -525,7 +545,10 @@ async def update_manual_submission_outcome(
         raise HTTPException(status_code=404, detail="Manual opportunity not found")
     try:
         record = await _manual_intake_service.update_outcome(db, job=job, outcome=request.outcome, notes=request.admin_notes)
+        await db.commit()
+        await db.refresh(record)
     except ManualOpportunityStateError as exc:
+        await db.rollback()
         raise HTTPException(status_code=409, detail=str(exc))
     return _manual_job_dict(job, record)
 

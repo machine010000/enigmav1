@@ -7,7 +7,7 @@ import { freelancingCopy } from "../i18n/freelancing";
 import { ApiError, apiRequest } from "../lib/api";
 
 type Overview = { status: string; jobs_discovered: number };
-type Job = { job_id: string; source: string; title: string; description: string; client_information?: Record<string, unknown>; budget_min?: number; budget_max?: number; currency?: string; skills?: string[]; last_seen_at?: string };
+type Job = { job_id: string; source: string; title: string; description: string; source_url?: string; platform_job_id?: string; client_information?: Record<string, unknown>; budget_min?: number; budget_max?: number; currency?: string; skills?: string[]; last_seen_at?: string };
 type JobDetail = { job: Job; assessment?: Record<string, unknown> | null };
 type Capability = { id?: string; capability_id?: string; name: string; status?: string; readiness_status?: string };
 type Assessment = { readiness: string; decision: string; missing_capabilities: string[]; reasoning_summary: string; blocking_capability?: string | null };
@@ -15,7 +15,7 @@ type Connection = { state: "not_configured" | "configured" | "connected" | "erro
 type SyncSummary = { state: "success" | "partial_failure"; created: number; updated: number; existing: number; skipped: number; failed: number; discovered: number };
 type Workspace = { overview: Overview | null; jobs: Job[]; capabilities: Capability[]; connection: Connection | null; error: string | null; loading: boolean };
 type ManualForm = { platform: string; source_url: string; external_project_id: string; title: string; original_description: string; budget_type: string; budget_min: string; budget_max: string; currency: string; required_skills: string; client_name: string; source_language: string; customer_preferred_language: string; proposal_language: string };
-type ManualOpportunity = Job & { manual_entry: true; no_live_api_connection: true; original_text: string; normalized_requirements: Record<string, unknown>; source_language: string; customer_preferred_language: string; proposal_language: string; lifecycle_status: string; submission?: { outcome_status: string } | null; assessment?: Record<string, unknown> | null };
+type ManualOpportunity = Job & { manual_entry: true; no_live_api_connection: true; original_text: string; normalized_requirements: Record<string, unknown>; source_language: string; customer_preferred_language: string; proposal_language: string; lifecycle_status: string; proposal_application_id?: string | null; submission?: { outcome_status: string } | null; assessment?: Record<string, unknown> | null };
 const emptyManualForm: ManualForm = { platform: "workana", source_url: "", external_project_id: "", title: "", original_description: "", budget_type: "fixed", budget_min: "", budget_max: "", currency: "USD", required_skills: "", client_name: "", source_language: "en", customer_preferred_language: "en", proposal_language: "en" };
 
 export function FreelancingControlCenter() {
@@ -94,11 +94,12 @@ export function FreelancingControlCenter() {
     if (manualForm.currency.length !== 3) { setManualError("Currency must be a three-letter code."); return; }
     if (manualForm.budget_min && manualForm.budget_max && Number(manualForm.budget_min) > Number(manualForm.budget_max)) { setManualError("Minimum budget cannot exceed maximum budget."); return; }
     setManualError(null); setDuplicateWarning(null); setBusy("plan");
-    const payload = { platform: manualForm.platform, source_url: manualForm.source_url || null, external_project_id: manualForm.external_project_id || null, title: manualForm.title.trim(), original_description: manualForm.original_description, budget_type: manualForm.budget_type, budget_min: manualForm.budget_min ? Number(manualForm.budget_min) : null, budget_max: manualForm.budget_max ? Number(manualForm.budget_max) : null, currency: manualForm.currency.toUpperCase(), required_skills: manualForm.required_skills.split(",").map((item) => item.trim()).filter(Boolean), client_info: manualForm.client_name ? { name: manualForm.client_name.trim() } : {}, source_language: manualForm.source_language, customer_preferred_language: manualForm.customer_preferred_language, proposal_language: manualForm.proposal_language, normalized_requirements: { requirements: [], summary: "Pending analysis" }, translation_metadata: { detected_language_is_suggestion: true }, analyze };
+    const createPayload = { platform: manualForm.platform, source_url: manualForm.source_url || null, external_project_id: manualForm.external_project_id || null, title: manualForm.title.trim(), original_description: manualForm.original_description, budget_type: manualForm.budget_type, budget_min: manualForm.budget_min ? Number(manualForm.budget_min) : null, budget_max: manualForm.budget_max ? Number(manualForm.budget_max) : null, currency: manualForm.currency.toUpperCase(), required_skills: manualForm.required_skills.split(",").map((item) => item.trim()).filter(Boolean), client_info: manualForm.client_name ? { name: manualForm.client_name.trim() } : {}, source_language: manualForm.source_language, customer_preferred_language: manualForm.customer_preferred_language, proposal_language: manualForm.proposal_language, normalized_requirements: { requirements: [], summary: "Pending analysis" }, translation_metadata: { detected_language_is_suggestion: true }, analyze };
+    const editPayload = { title: manualForm.title.trim(), original_description: manualForm.original_description, budget_type: manualForm.budget_type, budget_min: manualForm.budget_min ? Number(manualForm.budget_min) : null, budget_max: manualForm.budget_max ? Number(manualForm.budget_max) : null, currency: manualForm.currency.toUpperCase(), required_skills: manualForm.required_skills.split(",").map((item) => item.trim()).filter(Boolean), source_language: manualForm.source_language, customer_preferred_language: manualForm.customer_preferred_language, proposal_language: manualForm.proposal_language };
     try {
       const saved = editingJobId
-        ? await apiRequest<ManualOpportunity>(`/api/freelancing/manual/${encodeURIComponent(editingJobId)}`, { method: "PATCH", headers: { "Content-Type": "application/json", ...headers }, body: JSON.stringify(payload) }, logout)
-        : await apiRequest<ManualOpportunity>("/api/freelancing/manual", { method: "POST", headers: { "Content-Type": "application/json", ...headers }, body: JSON.stringify(payload) }, logout);
+        ? await apiRequest<ManualOpportunity>(`/api/freelancing/manual/${encodeURIComponent(editingJobId)}`, { method: "PATCH", headers: { "Content-Type": "application/json", ...headers }, body: JSON.stringify(editPayload) }, logout)
+        : await apiRequest<ManualOpportunity>("/api/freelancing/manual", { method: "POST", headers: { "Content-Type": "application/json", ...headers }, body: JSON.stringify(createPayload) }, logout);
       if (editingJobId && analyze) await apiRequest(`/api/freelancing/manual/${encodeURIComponent(editingJobId)}/analyze`, { method: "POST", headers }, logout);
       setManualForm(emptyManualForm); setEditingJobId(null); setManualDetail(saved); await loadWorkspace();
     }
@@ -112,7 +113,7 @@ export function FreelancingControlCenter() {
   };
 
   const editManual = (job: ManualOpportunity) => {
-    setEditingJobId(job.job_id); setManualForm({ ...emptyManualForm, platform: job.source, source_url: "", title: job.title, original_description: job.original_text, budget_min: job.budget_min?.toString() ?? "", budget_max: job.budget_max?.toString() ?? "", currency: job.currency ?? "USD", required_skills: job.skills?.join(", ") ?? "", source_language: job.source_language, customer_preferred_language: job.customer_preferred_language, proposal_language: job.proposal_language });
+    setEditingJobId(job.job_id); setManualForm({ ...emptyManualForm, platform: job.source, source_url: job.source_url ?? "", external_project_id: job.platform_job_id ?? "", client_name: String(job.client_information?.name ?? ""), title: job.title, original_description: job.description, budget_min: job.budget_min?.toString() ?? "", budget_max: job.budget_max?.toString() ?? "", currency: job.currency ?? "USD", required_skills: job.skills?.join(", ") ?? "", source_language: job.source_language, customer_preferred_language: job.customer_preferred_language, proposal_language: job.proposal_language });
   };
 
   const prepareProposal = async () => {
@@ -160,7 +161,8 @@ export function FreelancingControlCenter() {
       {manualDetail && <div className="manual-tracking-actions">
         <button className="action secondary" onClick={() => editManual(manualDetail)} disabled={Boolean(manualDetail.submission)}>Edit before submission</button>
         <button className="action secondary" onClick={() => void prepareProposal()} disabled={busy !== "idle" || Boolean(manualDetail.submission)}>Prepare proposal package</button>
-        {!manualDetail.submission && <><label>Exact submitted proposal snapshot<textarea maxLength={30000} value={proposalText} onChange={(e) => setProposalText(e.target.value)} /></label><label>Submitted price<input type="number" min="0" value={submittedPrice} onChange={(e) => setSubmittedPrice(e.target.value)} /></label><button className="action primary" onClick={() => void recordSubmission()} disabled={busy !== "idle"}>Record manual submission</button></>}
+        {!manualDetail.submission && !manualDetail.proposal_application_id && <p>Prepare, approve, and create a Submission Intent before recording a manual submission.</p>}
+        {!manualDetail.submission && manualDetail.proposal_application_id && <><label>Exact submitted proposal snapshot<textarea maxLength={30000} value={proposalText} onChange={(e) => setProposalText(e.target.value)} /></label><label>Submitted price<input type="number" min="0" value={submittedPrice} onChange={(e) => setSubmittedPrice(e.target.value)} /></label><button className="action primary" onClick={() => void recordSubmission()} disabled={busy !== "idle"}>Record manual submission</button></>}
         {manualDetail.submission && <><label>Outcome<select value={outcome} onChange={(e) => setOutcome(e.target.value)}><option value="client_replied">Client replied</option><option value="won">Won</option><option value="lost">Lost</option><option value="withdrawn">Withdrawn</option><option value="expired">Expired</option></select></label><button className="action primary" onClick={() => void recordOutcome()} disabled={busy !== "idle"}>Record outcome</button></>}
       </div>}
     </section>

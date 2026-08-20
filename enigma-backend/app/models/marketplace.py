@@ -163,11 +163,14 @@ class MarketplaceJob(Base):
     proposal_language = Column(String(10), nullable=True)
     translation_metadata = Column(JSON, nullable=True)
     created_by_user_id = Column(String(64), nullable=True, index=True)
+    manual_dedupe_key = Column(String(64), nullable=True)
+    proposal_application_id = Column(String(64), nullable=True)
 
     # Indexes
     __table_args__ = (
         Index("ix_marketplace_jobs_profile_platform_job_id", "profile_id", "platform", "platform_job_id", unique=True),
         Index("ix_marketplace_jobs_job_id", "job_id"),
+        Index("uq_marketplace_jobs_manual_dedupe", "profile_id", "manual_dedupe_key", unique=True),
     )
 
 
@@ -275,6 +278,9 @@ class ManualOpportunitySubmission(Base):
     profile_id = Column(String, nullable=False, index=True)
     job_id = Column(String, nullable=False, unique=True, index=True)
     created_by_user_id = Column(String(64), nullable=False, index=True)
+    # Nullable only for backward compatibility with snapshots created before 011.
+    application_id = Column(String(64), nullable=True)
+    submission_intent_id = Column(String(64), nullable=True)
     marketplace_proposal_id = Column(String(200), nullable=True)
     submitted_at = Column(DateTime, nullable=False)
     proposal_text_snapshot = Column(Text, nullable=False)

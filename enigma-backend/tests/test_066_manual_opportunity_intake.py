@@ -8,6 +8,7 @@ from unittest.mock import AsyncMock
 import pytest
 from fastapi import HTTPException
 from pydantic import ValidationError
+from sqlalchemy.exc import IntegrityError
 
 from app.freelancing.manual_intake import (
     DuplicateOpportunityError,
@@ -18,7 +19,7 @@ from app.freelancing.manual_intake import (
 )
 from app.models.marketplace import MarketplaceJob, ManualOpportunitySubmission
 from app.routers.auth import require_admin_user
-from app.routers.freelancing import ManualOpportunityCreate, router
+from app.routers.freelancing import ManualOpportunityCreate, create_manual_opportunity, router
 
 
 def payload(**overrides):
@@ -37,10 +38,12 @@ def payload(**overrides):
 
 
 class FakeDB:
-    def __init__(self, scalars=None, commit_error=None):
+    def __init__(self, scalars=None, commit_error=None, flush_error=None):
         self.scalars = list(scalars or [])
         self.added = []
         self.commit = AsyncMock(side_effect=commit_error)
+        self.flush = AsyncMock(side_effect=flush_error)
+        self.rollback = AsyncMock()
         self.refresh = AsyncMock()
 
     async def scalar(self, _query):
@@ -91,7 +94,8 @@ async def test_creation_is_durable_profile_owned_and_audited_without_source_muta
     original = payload()["original_description"]
     job = await service.create(db, actor_id="admin-user-id", data=payload())
     assert db.added == [job]
-    db.commit.assert_awaited_once()
+    db.flush.assert_awaited_once()
+    db.commit.assert_not_awaited()
     assert job.profile_id == "enigma_profile"
     assert job.created_by_user_id == "admin-user-id"
     assert job.ingestion_source == "manual" and job.lifecycle_status == "draft"
@@ -111,10 +115,32 @@ async def test_duplicate_returns_existing_reference_and_never_writes():
 
 
 @pytest.mark.asyncio
-async def test_commit_failure_propagates_for_transaction_rollback_by_dependency():
-    db = FakeDB(commit_error=RuntimeError("commit failed"))
-    with pytest.raises(RuntimeError, match="commit failed"):
+async def test_database_uniqueness_race_returns_canonical_existing_job():
+    existing = SimpleNamespace(job_id="winner")
+    db = FakeDB([None, None, None, existing], flush_error=IntegrityError("insert", {}, Exception("unique")))
+    with pytest.raises(DuplicateOpportunityError) as error:
         await ManualOpportunityService().create(db, actor_id="admin", data=payload())
+    assert error.value.existing_job_id == "winner"
+    db.rollback.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_service_flushes_without_intermediate_commit():
+    db = FakeDB()
+    await ManualOpportunityService().create(db, actor_id="admin", data=payload())
+    db.flush.assert_awaited_once()
+    db.commit.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_create_endpoint_rolls_back_on_partial_failure(monkeypatch):
+    from app.routers import freelancing as freelancing_router
+    db = FakeDB()
+    monkeypatch.setattr(freelancing_router._manual_intake_service, "create", AsyncMock(side_effect=RuntimeError("analysis failed")))
+    with pytest.raises(RuntimeError, match="analysis failed"):
+        await create_manual_opportunity(ManualOpportunityCreate(**payload()), SimpleNamespace(id="admin"), db)
+    db.commit.assert_not_awaited()
+    db.rollback.assert_awaited_once()
 
 
 @pytest.mark.asyncio
@@ -123,7 +149,18 @@ async def test_editing_draft_commits_and_preserves_audit_identity():
     db = FakeDB()
     updated = await ManualOpportunityService().update(db, job=job, data={"title": "Updated title"})
     assert updated.title == "Updated title" and updated.created_by_user_id == "creator"
-    db.commit.assert_awaited_once()
+    db.flush.assert_awaited_once()
+    db.commit.assert_not_awaited()
+    assert updated.original_text == payload()["original_description"]
+
+
+@pytest.mark.asyncio
+async def test_editing_description_never_replaces_original_source_text():
+    job = await ManualOpportunityService().create(FakeDB(), actor_id="creator", data=payload())
+    original = job.original_text
+    await ManualOpportunityService().update(FakeDB(), job=job, data={"original_description": "Corrected derived description"})
+    assert job.description == "Corrected derived description"
+    assert job.original_text == original
 
 
 @pytest.mark.asyncio
@@ -135,8 +172,10 @@ async def test_edit_after_submission_is_forbidden():
 
 @pytest.mark.asyncio
 async def test_manual_submission_creates_immutable_snapshot_and_lifecycle_transition():
-    job = SimpleNamespace(job_id="job-1", lifecycle_status="approved")
-    db = FakeDB([None])
+    job = SimpleNamespace(job_id="job-1", lifecycle_status="proposal_prepared", proposal_application_id="pkg-1")
+    package = SimpleNamespace(application_id="pkg-1", state="APPROVED")
+    intent = SimpleNamespace(submission_id="intent-1")
+    db = FakeDB([package, intent, None])
     record = await ManualOpportunityService().record_submission(db, job=job, actor_id="admin", data={
         "proposal_text": "Exact submitted proposal", "currency": "usd", "submitted_price": 150,
         "marketplace_proposal_id": None, "submitted_at": datetime(2026, 1, 1),
@@ -145,15 +184,49 @@ async def test_manual_submission_creates_immutable_snapshot_and_lifecycle_transi
     assert isinstance(record, ManualOpportunitySubmission)
     assert record.proposal_text_snapshot == "Exact submitted proposal"
     assert record.created_by_user_id == "admin" and job.lifecycle_status == "manually_submitted"
-    db.commit.assert_awaited_once()
+    assert record.application_id == "pkg-1" and record.submission_intent_id == "intent-1"
+    db.flush.assert_awaited_once()
+    db.commit.assert_not_awaited()
 
 
 @pytest.mark.asyncio
 async def test_second_submission_cannot_overwrite_snapshot():
-    job = SimpleNamespace(job_id="job-1", lifecycle_status="approved")
-    db = FakeDB([SimpleNamespace(id=1)])
+    job = SimpleNamespace(job_id="job-1", lifecycle_status="proposal_prepared", proposal_application_id="pkg-1")
+    package = SimpleNamespace(application_id="pkg-1", state="APPROVED")
+    intent = SimpleNamespace(submission_id="intent-1")
+    db = FakeDB([package, intent, SimpleNamespace(id=1)])
     with pytest.raises(ManualOpportunityStateError, match="already exists"):
         await ManualOpportunityService().record_submission(db, job=job, actor_id="admin", data={"proposal_text": "replacement", "currency": "USD"})
+
+
+@pytest.mark.parametrize("source,target", [
+    ("draft", "analyzed"), ("analyzed", "manually_submitted"),
+    ("won", "client_replied"), ("lost", "manually_submitted"),
+])
+def test_invalid_lifecycle_transitions_are_rejected(source, target):
+    job = SimpleNamespace(lifecycle_status=source)
+    with pytest.raises(ManualOpportunityStateError, match="Invalid lifecycle transition"):
+        ManualOpportunityService.transition(job, target)
+
+
+def test_valid_lifecycle_transitions_and_terminal_states():
+    job = SimpleNamespace(lifecycle_status="draft")
+    for target in ("ready_for_analysis", "analyzed", "proposal_prepared", "manually_submitted", "client_replied", "won"):
+        ManualOpportunityService.transition(job, target)
+    with pytest.raises(ManualOpportunityStateError):
+        ManualOpportunityService.transition(job, "lost")
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("package,intent", [
+    (None, None), (SimpleNamespace(application_id="pkg-1", state="READY_FOR_HUMAN_APPROVAL"), None),
+    (SimpleNamespace(application_id="pkg-1", state="APPROVED"), None),
+])
+async def test_submission_requires_owned_approved_package_and_active_intent(package, intent):
+    job = SimpleNamespace(job_id="job-1", lifecycle_status="proposal_prepared", proposal_application_id="pkg-1")
+    db = FakeDB([package] + ([intent] if package and package.state == "APPROVED" else []))
+    with pytest.raises(ManualOpportunityStateError):
+        await ManualOpportunityService().record_submission(db, job=job, actor_id="admin", data={"proposal_text": "x", "currency": "USD"})
 
 
 @pytest.mark.asyncio

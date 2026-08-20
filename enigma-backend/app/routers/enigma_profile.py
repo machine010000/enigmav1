@@ -362,6 +362,7 @@ async def assess_existing_job(
     job_id: str,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
+    commit: bool = True,
 ) -> AssessmentResponse:
     """
     Assess an existing FreelanceJob (from work_market) using TASK-017 readiness.
@@ -425,13 +426,17 @@ async def assess_existing_job(
     existing.reasoning_summary = assessment.reasoning_summary
     existing.blocking_capability = decision.blocking_capability
     existing.execution_available_for_blocking = decision.execution_available
-    job.lifecycle_status = {
-        "ready_to_apply": "ready",
-        "high_confidence": "ready",
-        "learn_first": "training_required",
-        "not_ready": "knowledge_missing",
-    }.get(assessment.readiness.value, "verification_pending")
-    await db.commit()
+    if commit:
+        job.lifecycle_status = {
+            "ready_to_apply": "ready",
+            "high_confidence": "ready",
+            "learn_first": "training_required",
+            "not_ready": "knowledge_missing",
+        }.get(assessment.readiness.value, "verification_pending")
+    if commit:
+        await db.commit()
+    else:
+        await db.flush()
 
     return AssessmentResponse(
         opportunity_id=assessment.opportunity_id,

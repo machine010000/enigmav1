@@ -8,18 +8,27 @@ import hashlib
 import json
 import uuid
 from datetime import datetime
-from decimal import Decimal
 from typing import Any, Optional
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.marketplace import MarketplaceJob, ManualOpportunitySubmission
+from app.models.controlled_application import ControlledApplicationPackageRecord
+from app.models.submission_intent import ApplicationSubmissionIntent
 
 PROFILE_ID = "enigma_profile"
-EDITABLE_STATES = {"draft", "ready_for_analysis", "analyzed", "proposal_prepared", "approved"}
-OUTCOME_STATES = {"manually_submitted", "client_replied", "won", "lost", "withdrawn", "expired"}
+EDITABLE_STATES = {"draft", "ready_for_analysis", "analyzed", "proposal_prepared"}
+TRANSITIONS = {
+    "draft": {"ready_for_analysis"},
+    "ready_for_analysis": {"analyzed"},
+    "analyzed": {"proposal_prepared"},
+    "proposal_prepared": {"manually_submitted"},
+    "manually_submitted": {"client_replied", "won", "lost", "withdrawn", "expired"},
+    "client_replied": {"won", "lost", "withdrawn", "expired"},
+}
 
 
 class DuplicateOpportunityError(Exception):
@@ -54,7 +63,19 @@ def fallback_fingerprint(platform: str, title: str, client_info: dict[str, Any])
     return hashlib.sha256(json.dumps(stable, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
 
 
+def canonical_dedupe_key(platform: str, external_project_id: Optional[str], source_url: Optional[str],
+                         title: str, client_info: dict[str, Any]) -> str:
+    normalized_url = normalize_source_url(source_url)
+    identity = normalized_url or (external_project_id or "").strip() or fallback_fingerprint(platform, title, client_info)
+    return hashlib.sha256(f"{platform.strip().lower()}:{identity}".encode()).hexdigest()
+
+
 class ManualOpportunityService:
+    @staticmethod
+    def transition(job: MarketplaceJob, target: str) -> None:
+        if target not in TRANSITIONS.get(job.lifecycle_status, set()):
+            raise ManualOpportunityStateError(f"Invalid lifecycle transition: {job.lifecycle_status} -> {target}")
+        job.lifecycle_status = target
     async def find_duplicate(
         self, db: AsyncSession, *, platform: str, external_project_id: Optional[str],
         source_url: Optional[str], title: str, client_info: dict[str, Any], exclude_job_id: Optional[str] = None,
@@ -106,11 +127,21 @@ class ManualOpportunityService:
             proposal_language=data["proposal_language"], translation_metadata=data.get("translation_metadata") or {},
             ingestion_source="manual", lifecycle_status="ready_for_analysis" if analyze else "draft",
             identity_fingerprint=fingerprint, created_by_user_id=actor_id,
+            manual_dedupe_key=canonical_dedupe_key(data["platform"], data.get("external_project_id"), data.get("source_url"), data["title"], data.get("client_info") or {}),
             first_seen_at=now, last_seen_at=now, job_metadata={"ingestion_method": "manual", "no_live_api_connection": True},
         )
         db.add(job)
-        await db.commit()
-        await db.refresh(job)
+        try:
+            await db.flush()
+        except IntegrityError as exc:
+            await db.rollback()
+            existing = await self.find_duplicate(
+                db, platform=data["platform"], external_project_id=data.get("external_project_id"),
+                source_url=data.get("source_url"), title=data["title"], client_info=data.get("client_info") or {},
+            )
+            if existing:
+                raise DuplicateOpportunityError(existing.job_id) from exc
+            raise
         return job
 
     async def get(self, db: AsyncSession, job_id: str) -> Optional[MarketplaceJob]:
@@ -142,26 +173,38 @@ class ManualOpportunityService:
             "budget_min": "budget_min", "budget_max": "budget_max", "currency": "currency",
             "required_skills": "skills_required", "client_info": "client_info", "source_language": "source_language",
             "customer_preferred_language": "customer_preferred_language", "proposal_language": "proposal_language",
-            "translation_metadata": "translation_metadata", "lifecycle_status": "lifecycle_status",
+            "translation_metadata": "translation_metadata",
         }
         for source, target in mapping.items():
             if source in data and data[source] is not None:
                 setattr(job, target, data[source])
-        if "original_description" in data:
-            job.original_text = data["original_description"]
         if "source_url" in data:
             job.url = normalize_source_url(data["source_url"])
         if "external_project_id" in data and data["external_project_id"]:
             job.platform_job_id = data["external_project_id"].strip()
         job.identity_fingerprint = fallback_fingerprint(platform, title, client_info)
+        job.manual_dedupe_key = canonical_dedupe_key(platform, external_id, source_url, title, client_info)
         job.updated_at = datetime.utcnow()
-        await db.commit()
-        await db.refresh(job)
+        await db.flush()
         return job
 
     async def record_submission(self, db: AsyncSession, *, job: MarketplaceJob, actor_id: str, data: dict[str, Any]) -> ManualOpportunitySubmission:
-        if job.lifecycle_status not in {"approved", "proposal_prepared"}:
-            raise ManualOpportunityStateError("Opportunity must have an approved or prepared proposal before manual submission")
+        if job.lifecycle_status != "proposal_prepared" or not job.proposal_application_id:
+            raise ManualOpportunityStateError("Opportunity must have a prepared linked proposal package")
+        package = await db.scalar(select(ControlledApplicationPackageRecord).where(
+            ControlledApplicationPackageRecord.application_id == job.proposal_application_id,
+            ControlledApplicationPackageRecord.user_id == actor_id,
+            ControlledApplicationPackageRecord.opportunity_id == job.job_id,
+        ))
+        if not package or package.state != "APPROVED":
+            raise ManualOpportunityStateError("An owned APPROVED package is required")
+        intent = await db.scalar(select(ApplicationSubmissionIntent).where(
+            ApplicationSubmissionIntent.application_id == package.application_id,
+            ApplicationSubmissionIntent.user_id == actor_id,
+            ApplicationSubmissionIntent.state == "PENDING_EXTERNAL_SUBMISSION",
+        ))
+        if not intent:
+            raise ManualOpportunityStateError("An active owned Submission Intent is required")
         existing = await db.scalar(select(ManualOpportunitySubmission).where(
             ManualOpportunitySubmission.profile_id == PROFILE_ID, ManualOpportunitySubmission.job_id == job.job_id,
         ))
@@ -169,30 +212,27 @@ class ManualOpportunityService:
             raise ManualOpportunityStateError("Manual submission snapshot already exists")
         record = ManualOpportunitySubmission(
             profile_id=PROFILE_ID, job_id=job.job_id, created_by_user_id=actor_id,
+            application_id=package.application_id, submission_intent_id=intent.submission_id,
             marketplace_proposal_id=data.get("marketplace_proposal_id"), submitted_at=data.get("submitted_at") or datetime.utcnow(),
             proposal_text_snapshot=data["proposal_text"], submitted_price=data.get("submitted_price"),
             currency=data["currency"].upper(), delivery_estimate=data.get("delivery_estimate"),
             outcome_status="manually_submitted", admin_notes=data.get("admin_notes"),
         )
         db.add(record)
-        job.lifecycle_status = "manually_submitted"
-        await db.commit()
-        await db.refresh(record)
+        self.transition(job, "manually_submitted")
+        await db.flush()
         return record
 
     async def update_outcome(self, db: AsyncSession, *, job: MarketplaceJob, outcome: str, notes: Optional[str]) -> ManualOpportunitySubmission:
-        if outcome not in OUTCOME_STATES:
-            raise ManualOpportunityStateError("Invalid manual submission outcome")
         record = await db.scalar(select(ManualOpportunitySubmission).where(
             ManualOpportunitySubmission.profile_id == PROFILE_ID, ManualOpportunitySubmission.job_id == job.job_id,
         ))
         if not record:
             raise ManualOpportunityStateError("Manual submission snapshot does not exist")
+        self.transition(job, outcome)
         record.outcome_status = outcome
         if notes is not None:
             record.admin_notes = notes
         record.updated_at = datetime.utcnow()
-        job.lifecycle_status = outcome
-        await db.commit()
-        await db.refresh(record)
+        await db.flush()
         return record
