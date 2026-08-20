@@ -353,12 +353,7 @@ async def assess_opportunity(
     )
 
 
-@router.post(
-    "/api/freelancing/jobs/{job_id}/assess",
-    response_model=AssessmentResponse,
-    status_code=status.HTTP_200_OK,
-)
-async def assess_existing_job(
+async def _assess_existing_job(
     job_id: str,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
@@ -426,7 +421,7 @@ async def assess_existing_job(
     existing.reasoning_summary = assessment.reasoning_summary
     existing.blocking_capability = decision.blocking_capability
     existing.execution_available_for_blocking = decision.execution_available
-    if commit:
+    if commit and job.ingestion_source != "manual":
         job.lifecycle_status = {
             "ready_to_apply": "ready",
             "high_confidence": "ready",
@@ -453,6 +448,20 @@ async def assess_existing_job(
         policy_overridden=decision.policy_overridden,
         reasoning_summary=assessment.reasoning_summary,
     )
+
+
+@router.post(
+    "/api/freelancing/jobs/{job_id}/assess",
+    response_model=AssessmentResponse,
+    status_code=status.HTTP_200_OK,
+)
+async def assess_existing_job(
+    job_id: str,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> AssessmentResponse:
+    """Assess a job while preserving state-machine-owned manual lifecycle."""
+    return await _assess_existing_job(job_id, current_user, db, commit=True)
 
 
 def _development_opportunity(

@@ -11,7 +11,7 @@ from datetime import datetime
 from typing import Any, Optional
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -63,11 +63,16 @@ def fallback_fingerprint(platform: str, title: str, client_info: dict[str, Any])
     return hashlib.sha256(json.dumps(stable, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
 
 
+def normalize_external_id(value: Optional[str]) -> Optional[str]:
+    normalized = (value or "").strip().lower()
+    return normalized or None
+
+
 def canonical_dedupe_key(platform: str, external_project_id: Optional[str], source_url: Optional[str],
                          title: str, client_info: dict[str, Any]) -> str:
     normalized_url = normalize_source_url(source_url)
-    identity = normalized_url or (external_project_id or "").strip() or fallback_fingerprint(platform, title, client_info)
-    return hashlib.sha256(f"{platform.strip().lower()}:{identity}".encode()).hexdigest()
+    identity = normalized_url or normalize_external_id(external_project_id) or fallback_fingerprint(platform, title, client_info)
+    return hashlib.md5(f"{platform.strip().lower()}|{identity}".encode(), usedforsecurity=False).hexdigest()
 
 
 class ManualOpportunityService:
@@ -82,7 +87,7 @@ class ManualOpportunityService:
     ) -> Optional[MarketplaceJob]:
         conditions = []
         if external_project_id:
-            conditions.append(MarketplaceJob.platform_job_id == external_project_id.strip())
+            conditions.append(func.lower(func.trim(MarketplaceJob.platform_job_id)) == normalize_external_id(external_project_id))
         normalized_url = normalize_source_url(source_url)
         if normalized_url:
             conditions.append(MarketplaceJob.url == normalized_url)
@@ -115,7 +120,7 @@ class ManualOpportunityService:
             profile_id=PROFILE_ID,
             job_id=str(uuid.uuid4()),
             platform=data["platform"].strip().lower(),
-            platform_job_id=(data.get("external_project_id") or fingerprint).strip(),
+            platform_job_id=normalize_external_id(data.get("external_project_id")) or fingerprint,
             title=data["title"].strip(),
             description=data["original_description"],
             original_text=data["original_description"],
@@ -162,7 +167,7 @@ class ManualOpportunityService:
         platform = data.get("platform", job.platform)
         title = data.get("title", job.title)
         client_info = data.get("client_info", job.client_info or {})
-        external_id = data.get("external_project_id", job.platform_job_id)
+        external_id = normalize_external_id(data.get("external_project_id", job.platform_job_id))
         source_url = data.get("source_url", job.url)
         duplicate = await self.find_duplicate(db, platform=platform, external_project_id=external_id, source_url=source_url, title=title, client_info=client_info, exclude_job_id=job.job_id)
         if duplicate:
@@ -181,11 +186,22 @@ class ManualOpportunityService:
         if "source_url" in data:
             job.url = normalize_source_url(data["source_url"])
         if "external_project_id" in data and data["external_project_id"]:
-            job.platform_job_id = data["external_project_id"].strip()
+            job.platform_job_id = normalize_external_id(data["external_project_id"])
         job.identity_fingerprint = fallback_fingerprint(platform, title, client_info)
         job.manual_dedupe_key = canonical_dedupe_key(platform, external_id, source_url, title, client_info)
         job.updated_at = datetime.utcnow()
-        await db.flush()
+        try:
+            await db.flush()
+        except IntegrityError as exc:
+            await db.rollback()
+            existing = await self.find_duplicate(
+                db, platform=platform, external_project_id=external_id,
+                source_url=source_url, title=title, client_info=client_info,
+                exclude_job_id=job.job_id,
+            )
+            if existing:
+                raise DuplicateOpportunityError(existing.job_id) from exc
+            raise
         return job
 
     async def record_submission(self, db: AsyncSession, *, job: MarketplaceJob, actor_id: str, data: dict[str, Any]) -> ManualOpportunitySubmission:

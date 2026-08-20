@@ -406,8 +406,8 @@ async def create_manual_opportunity(
             db, actor_id=str(current_user.id), data=request.model_dump(exclude={"analyze"}), analyze=request.analyze,
         )
         if request.analyze:
-            from app.routers.enigma_profile import assess_existing_job
-            await assess_existing_job(job.job_id, current_user, db, commit=False)
+            from app.routers.enigma_profile import _assess_existing_job
+            await _assess_existing_job(job.job_id, current_user, db, commit=False)
             _manual_intake_service.transition(job, "analyzed")
         await db.commit()
         await db.refresh(job)
@@ -483,11 +483,11 @@ async def analyze_manual_opportunity(
     job = await _manual_intake_service.get(db, job_id)
     if not job:
         raise HTTPException(status_code=404, detail="Manual opportunity not found")
-    from app.routers.enigma_profile import assess_existing_job
+    from app.routers.enigma_profile import _assess_existing_job
     if job.lifecycle_status != "ready_for_analysis":
         raise HTTPException(status_code=409, detail=f"Invalid lifecycle transition: {job.lifecycle_status} -> analyzed")
     try:
-        result = await assess_existing_job(job_id, current_user, db, commit=False)
+        result = await _assess_existing_job(job_id, current_user, db, commit=False)
         _manual_intake_service.transition(job, "analyzed")
         await db.commit()
     except Exception:

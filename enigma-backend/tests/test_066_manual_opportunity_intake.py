@@ -11,10 +11,12 @@ from pydantic import ValidationError
 from sqlalchemy.exc import IntegrityError
 
 from app.freelancing.manual_intake import (
+    canonical_dedupe_key,
     DuplicateOpportunityError,
     ManualOpportunityService,
     ManualOpportunityStateError,
     fallback_fingerprint,
+    normalize_external_id,
     normalize_source_url,
 )
 from app.models.marketplace import MarketplaceJob, ManualOpportunitySubmission
@@ -65,6 +67,15 @@ def test_url_validation_rejects_unsafe_or_non_http_urls(url):
 
 def test_fallback_fingerprint_is_stable_for_title_and_client():
     assert fallback_fingerprint("UPWORK", "  Build API ", {"name": "Client"}) == fallback_fingerprint("upwork", "build   api", {"name": "Client"})
+
+
+def test_external_id_and_canonical_key_normalization_is_deterministic():
+    assert normalize_external_id("  JOB-AbC  ") == "job-abc"
+    first = canonical_dedupe_key("UPWORK", " JOB-ABC ", None, "Title", {})
+    assert first == canonical_dedupe_key("upwork", "job-abc", None, "Different", {"name": "Other"})
+    assert canonical_dedupe_key("upwork", "one", "https://EXAMPLE.com/job/1/?utm_source=x", "A", {}) == \
+        canonical_dedupe_key("upwork", "two", "https://example.com/job/1", "B", {})
+    assert first != canonical_dedupe_key("freelancer", "job-abc", None, "Title", {})
 
 
 @pytest.mark.parametrize("platform", ["workana", "peopleperhour", "upwork", "freelancer", "mostaql", "other"])
@@ -122,6 +133,55 @@ async def test_database_uniqueness_race_returns_canonical_existing_job():
         await ManualOpportunityService().create(db, actor_id="admin", data=payload())
     assert error.value.existing_job_id == "winner"
     db.rollback.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_update_uniqueness_race_uses_same_duplicate_contract_as_create():
+    job = await ManualOpportunityService().create(FakeDB(), actor_id="admin", data=payload())
+    existing = SimpleNamespace(job_id="canonical-job")
+    db = FakeDB([None, None, None, existing], flush_error=IntegrityError("update", {}, Exception("unique")))
+    with pytest.raises(DuplicateOpportunityError) as error:
+        await ManualOpportunityService().update(db, job=job, data={"source_url": "https://example.com/collision"})
+    assert error.value.existing_job_id == "canonical-job"
+    db.rollback.assert_awaited_once()
+
+
+def test_migration_012_uses_runtime_canonical_identity_order():
+    source = (Path(__file__).parents[1] / "alembic/versions/012_canonical_manual_dedupe.py").read_text(encoding="utf-8")
+    assert "md5(" in source
+    assert "lower(trim(platform)) || '|'" in source
+    assert "COALESCE(NULLIF(url, ''), NULLIF(lower(trim(platform_job_id)), ''), identity_fingerprint)" in source
+    assert "row_number()" in source and "duplicate_rank > 1" in source
+
+
+@pytest.mark.asyncio
+async def test_general_assessment_preserves_terminal_manual_lifecycle(monkeypatch):
+    from app.routers import enigma_profile
+    job = SimpleNamespace(
+        job_id="manual-1", profile_id="enigma_profile", ingestion_source="manual", lifecycle_status="won",
+        platform="workana", title="Job", description="Description", budget_min=None, budget_max=None,
+        currency="USD", skills_required=[],
+    )
+    assessment = SimpleNamespace(
+        opportunity_id="manual-1", overall_score=0.9, assessed_at=datetime(2026, 1, 1),
+        readiness=SimpleNamespace(value="ready_to_apply"), capability_matches=[], missing_capabilities=[],
+        weak_capabilities=[], unmapped_skills=[], risk_flags=[], reasoning_summary="ready",
+    )
+    decision = SimpleNamespace(
+        decision=SimpleNamespace(value="ready_to_apply"), blocking_capability=None,
+        execution_available=True, policy_overridden=False,
+    )
+    db = FakeDB([job, None])
+    monkeypatch.setattr(enigma_profile._assessment_service, "assess", AsyncMock(return_value=(None, assessment, decision)))
+    await enigma_profile.assess_existing_job("manual-1", SimpleNamespace(id="user-1"), db)
+    assert job.lifecycle_status == "won"
+    db.commit.assert_awaited_once()
+
+
+def test_general_assessment_route_does_not_expose_commit_control():
+    import inspect
+    from app.routers.enigma_profile import assess_existing_job
+    assert "commit" not in inspect.signature(assess_existing_job).parameters
 
 
 @pytest.mark.asyncio
