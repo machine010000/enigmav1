@@ -35,7 +35,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
   const login = (email: string, password: string) => authenticate("/auth/login", { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body: new URLSearchParams({ username: email, password }) });
   const adminLogin = (username: string, password: string) => authenticate("/auth/admin-login", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ username, password }) });
-  const logout = () => { clearSession(); router.replace("/"); };
+  const logout = useCallback(() => { clearSession(); router.replace("/"); }, [clearSession, router]);
   return <AuthContext.Provider value={{ user, token, authenticated: Boolean(user && token), loading, error, login, adminLogin, logout, refreshUser }}>{children}</AuthContext.Provider>;
 }
 

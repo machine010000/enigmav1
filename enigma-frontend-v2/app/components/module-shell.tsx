@@ -2,12 +2,10 @@
 
 import Link from "next/link";
 import { useLocale } from "../i18n/provider";
-
-const areas = ["Marketplace / Jobs", "Opportunity Verification", "Academy", "Creativity", "Applications", "Active Work"];
+import { FreelancingControlCenter } from "./freelancing-control-center";
 
 export function FreelancingShell() {
-  const { locale } = useLocale();
-  return <section className="workspace"><div className="eyebrow">{locale.shell.ready}</div><div className="workspace-header"><div><h1>{locale.modules.freelancing}</h1><p>{locale.modules.freelancingCopy}</p></div><span className="status">Backend integration pending</span></div><div className="module-grid">{areas.map((area) => <div className="workspace-panel" key={area}><span className="status">Not available yet</span><h3>{area}</h3><p>No marketplace connected. This shell does not simulate data or submit applications.</p></div>)}</div></section>;
+  return <FreelancingControlCenter />;
 }
 
 export function SimpleModuleShell({ kind }: { kind: "academy" | "creativity" }) {
