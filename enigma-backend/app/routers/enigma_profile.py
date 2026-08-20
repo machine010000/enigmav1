@@ -371,7 +371,7 @@ async def assess_existing_job(
     """
     job = await db.scalar(select(MarketplaceJob).where(
         MarketplaceJob.job_id == job_id,
-        MarketplaceJob.profile_id == str(current_user.id),
+        MarketplaceJob.profile_id == "enigma_profile",
     ))
     if not job:
         raise HTTPException(status_code=404, detail=f"Job '{job_id}' not found")
@@ -407,10 +407,10 @@ async def assess_existing_job(
 
     existing = await db.scalar(select(MarketplaceJobAssessment).where(
         MarketplaceJobAssessment.job_id == job_id,
-        MarketplaceJobAssessment.profile_id == str(current_user.id),
+        MarketplaceJobAssessment.profile_id == "enigma_profile",
     ))
     if existing is None:
-        existing = MarketplaceJobAssessment(profile_id=str(current_user.id), job_id=job_id)
+        existing = MarketplaceJobAssessment(profile_id="enigma_profile", job_id=job_id)
         db.add(existing)
     existing.overall_readiness_score = assessment.overall_score
     existing.recommended_action = decision.decision.value
@@ -431,6 +431,7 @@ async def assess_existing_job(
         "learn_first": "training_required",
         "not_ready": "knowledge_missing",
     }.get(assessment.readiness.value, "verification_pending")
+    await db.commit()
 
     return AssessmentResponse(
         opportunity_id=assessment.opportunity_id,
