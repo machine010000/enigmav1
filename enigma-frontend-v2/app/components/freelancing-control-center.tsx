@@ -35,6 +35,10 @@ export function FreelancingControlCenter() {
   const [manualDetail, setManualDetail] = useState<ManualOpportunity | null>(null);
   const [manualError, setManualError] = useState<string | null>(null);
   const [duplicateWarning, setDuplicateWarning] = useState<string | null>(null);
+  const [editingJobId, setEditingJobId] = useState<string | null>(null);
+  const [proposalText, setProposalText] = useState("");
+  const [submittedPrice, setSubmittedPrice] = useState("");
+  const [outcome, setOutcome] = useState("client_replied");
   const headers = token ? { Authorization: `Bearer ${token}` } : undefined;
 
   const loadWorkspace = useCallback(async () => {
@@ -91,7 +95,13 @@ export function FreelancingControlCenter() {
     if (manualForm.budget_min && manualForm.budget_max && Number(manualForm.budget_min) > Number(manualForm.budget_max)) { setManualError("Minimum budget cannot exceed maximum budget."); return; }
     setManualError(null); setDuplicateWarning(null); setBusy("plan");
     const payload = { platform: manualForm.platform, source_url: manualForm.source_url || null, external_project_id: manualForm.external_project_id || null, title: manualForm.title.trim(), original_description: manualForm.original_description, budget_type: manualForm.budget_type, budget_min: manualForm.budget_min ? Number(manualForm.budget_min) : null, budget_max: manualForm.budget_max ? Number(manualForm.budget_max) : null, currency: manualForm.currency.toUpperCase(), required_skills: manualForm.required_skills.split(",").map((item) => item.trim()).filter(Boolean), client_info: manualForm.client_name ? { name: manualForm.client_name.trim() } : {}, source_language: manualForm.source_language, customer_preferred_language: manualForm.customer_preferred_language, proposal_language: manualForm.proposal_language, normalized_requirements: { requirements: [], summary: "Pending analysis" }, translation_metadata: { detected_language_is_suggestion: true }, analyze };
-    try { const created = await apiRequest<ManualOpportunity>("/api/freelancing/manual", { method: "POST", headers: { "Content-Type": "application/json", ...headers }, body: JSON.stringify(payload) }, logout); setManualForm(emptyManualForm); setManualDetail(created); await loadWorkspace(); }
+    try {
+      const saved = editingJobId
+        ? await apiRequest<ManualOpportunity>(`/api/freelancing/manual/${encodeURIComponent(editingJobId)}`, { method: "PATCH", headers: { "Content-Type": "application/json", ...headers }, body: JSON.stringify(payload) }, logout)
+        : await apiRequest<ManualOpportunity>("/api/freelancing/manual", { method: "POST", headers: { "Content-Type": "application/json", ...headers }, body: JSON.stringify(payload) }, logout);
+      if (editingJobId && analyze) await apiRequest(`/api/freelancing/manual/${encodeURIComponent(editingJobId)}/analyze`, { method: "POST", headers }, logout);
+      setManualForm(emptyManualForm); setEditingJobId(null); setManualDetail(saved); await loadWorkspace();
+    }
     catch (error) { if (error instanceof ApiError && error.status === 409) setDuplicateWarning("Duplicate warning: this matches an existing opportunity; the existing record was not overwritten."); else setManualError(error instanceof Error ? error.message : copy.error); }
     finally { setBusy("idle"); }
   };
@@ -99,6 +109,29 @@ export function FreelancingControlCenter() {
   const selectManual = async (jobId: string) => {
     try { setManualDetail(await apiRequest<ManualOpportunity>(`/api/freelancing/manual/${encodeURIComponent(jobId)}`, { headers }, logout)); }
     catch (error) { setManualError(error instanceof Error ? error.message : copy.error); }
+  };
+
+  const editManual = (job: ManualOpportunity) => {
+    setEditingJobId(job.job_id); setManualForm({ ...emptyManualForm, platform: job.source, source_url: "", title: job.title, original_description: job.original_text, budget_min: job.budget_min?.toString() ?? "", budget_max: job.budget_max?.toString() ?? "", currency: job.currency ?? "USD", required_skills: job.skills?.join(", ") ?? "", source_language: job.source_language, customer_preferred_language: job.customer_preferred_language, proposal_language: job.proposal_language });
+  };
+
+  const prepareProposal = async () => {
+    if (!manualDetail) return; setBusy("plan"); setManualError(null);
+    try { await apiRequest(`/api/freelancing/manual/${encodeURIComponent(manualDetail.job_id)}/proposal-package`, { method: "POST", headers }, logout); await selectManual(manualDetail.job_id); }
+    catch (error) { setManualError(error instanceof Error ? error.message : copy.error); } finally { setBusy("idle"); }
+  };
+
+  const recordSubmission = async () => {
+    if (!manualDetail || !proposalText.trim()) { setManualError("The exact manually submitted proposal text is required."); return; }
+    setBusy("plan");
+    try { await apiRequest(`/api/freelancing/manual/${encodeURIComponent(manualDetail.job_id)}/submission`, { method: "POST", headers: { "Content-Type": "application/json", ...headers }, body: JSON.stringify({ proposal_text: proposalText, submitted_price: submittedPrice ? Number(submittedPrice) : null, currency: manualDetail.currency ?? "USD" }) }, logout); setProposalText(""); await selectManual(manualDetail.job_id); }
+    catch (error) { setManualError(error instanceof Error ? error.message : copy.error); } finally { setBusy("idle"); }
+  };
+
+  const recordOutcome = async () => {
+    if (!manualDetail) return; setBusy("plan");
+    try { await apiRequest(`/api/freelancing/manual/${encodeURIComponent(manualDetail.job_id)}/outcome`, { method: "PATCH", headers: { "Content-Type": "application/json", ...headers }, body: JSON.stringify({ outcome }) }, logout); await selectManual(manualDetail.job_id); }
+    catch (error) { setManualError(error instanceof Error ? error.message : copy.error); } finally { setBusy("idle"); }
   };
 
   if (workspace.loading) return <section className="workspace"><div className="eyebrow">{copy.title}</div><h1>{copy.loading}</h1></section>;
@@ -124,6 +157,12 @@ export function FreelancingControlCenter() {
       {manualError && <p className="form-error" role="alert">{manualError}</p>}<div className="manual-actions"><button className="action secondary" disabled={busy !== "idle"} onClick={() => void saveManual(false)}>Save Draft</button><button className="action primary" disabled={busy !== "idle"} onClick={() => void saveManual(true)}>Save and Analyze</button></div>
       <div className="job-list manual-jobs">{manualJobs.map((job) => <button className="job-row" key={job.job_id} onClick={() => void selectManual(job.job_id)}><span><strong>{job.title}</strong><small>{job.source} · Manual entry · {job.lifecycle_status}</small></span><span>{job.submission ? "Submitted manually" : "Not submitted"}</span></button>)}</div>
       {manualDetail && <div className="manual-detail"><h3>{manualDetail.title}</h3><p><strong>{manualDetail.submission ? "Submitted manually" : "Not submitted"}</strong> · {manualDetail.lifecycle_status}</p><h3>Original source content</h3><p className="untrusted-description">{manualDetail.original_text}</p><h3>Normalized requirements</h3><pre>{JSON.stringify(manualDetail.normalized_requirements, null, 2)}</pre><p><strong>Assessment/readiness:</strong> {manualDetail.assessment ? JSON.stringify(manualDetail.assessment) : "Pending"}</p><p><strong>Economics, risks, capability gaps, Academy and Creativity:</strong> populated by the existing analysis workflow when applicable.</p><p><strong>Outcome/learning:</strong> {manualDetail.submission?.outcome_status ?? "Not submitted"}</p></div>}
+      {manualDetail && <div className="manual-tracking-actions">
+        <button className="action secondary" onClick={() => editManual(manualDetail)} disabled={Boolean(manualDetail.submission)}>Edit before submission</button>
+        <button className="action secondary" onClick={() => void prepareProposal()} disabled={busy !== "idle" || Boolean(manualDetail.submission)}>Prepare proposal package</button>
+        {!manualDetail.submission && <><label>Exact submitted proposal snapshot<textarea maxLength={30000} value={proposalText} onChange={(e) => setProposalText(e.target.value)} /></label><label>Submitted price<input type="number" min="0" value={submittedPrice} onChange={(e) => setSubmittedPrice(e.target.value)} /></label><button className="action primary" onClick={() => void recordSubmission()} disabled={busy !== "idle"}>Record manual submission</button></>}
+        {manualDetail.submission && <><label>Outcome<select value={outcome} onChange={(e) => setOutcome(e.target.value)}><option value="client_replied">Client replied</option><option value="won">Won</option><option value="lost">Lost</option><option value="withdrawn">Withdrawn</option><option value="expired">Expired</option></select></label><button className="action primary" onClick={() => void recordOutcome()} disabled={busy !== "idle"}>Record outcome</button></>}
+      </div>}
     </section>
     <section className="workspace-panel sync-panel">
       <div className="panel-heading"><div><span className="eyebrow">Freelancer.com</span><h2>Live opportunity discovery</h2></div><span className="status">{workspace.connection?.state ?? "not_configured"}</span></div>
