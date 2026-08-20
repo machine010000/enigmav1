@@ -10,7 +10,7 @@ dist/
 downloads/
 eggs/
 .eggs/
-lib/
+/lib/
 lib64/
 parts/
 sdist/
@@ -66,5 +66,5 @@ Thumbs.db
 
 # Node modules
 node_modules/
-package-lock.json
+/package-lock.json
 yarn.lock
