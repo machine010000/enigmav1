@@ -155,6 +155,15 @@ class MarketplaceJob(Base):
     last_seen_at = Column(DateTime, nullable=False, default=datetime.utcnow, server_default="now()")
     ingestion_source = Column(String(100), nullable=True)
 
+    # Manual-intake provenance and multilingual normalization (TASK-066).
+    original_text = Column(Text, nullable=True)
+    normalized_requirements = Column(JSON, nullable=True)
+    source_language = Column(String(10), nullable=True)
+    customer_preferred_language = Column(String(10), nullable=True)
+    proposal_language = Column(String(10), nullable=True)
+    translation_metadata = Column(JSON, nullable=True)
+    created_by_user_id = Column(String(64), nullable=True, index=True)
+
     # Indexes
     __table_args__ = (
         Index("ix_marketplace_jobs_profile_platform_job_id", "profile_id", "platform", "platform_job_id", unique=True),
@@ -255,6 +264,30 @@ class MarketplaceApplication(Base):
     __table_args__ = (
         Index("ix_marketplace_applications_profile_job", "profile_id", "job_id"),
         Index("ix_marketplace_applications_platform_application_id", "platform", "platform_application_id"),
+    )
+
+
+class ManualOpportunitySubmission(Base):
+    """Immutable manual-submission snapshot plus mutable outcome tracking."""
+    __tablename__ = "manual_opportunity_submissions"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    profile_id = Column(String, nullable=False, index=True)
+    job_id = Column(String, nullable=False, unique=True, index=True)
+    created_by_user_id = Column(String(64), nullable=False, index=True)
+    marketplace_proposal_id = Column(String(200), nullable=True)
+    submitted_at = Column(DateTime, nullable=False)
+    proposal_text_snapshot = Column(Text, nullable=False)
+    submitted_price = Column(Numeric(10, 2), nullable=True)
+    currency = Column(String(3), nullable=False)
+    delivery_estimate = Column(String(200), nullable=True)
+    outcome_status = Column(String(40), nullable=False, default="manually_submitted")
+    admin_notes = Column(Text, nullable=True)
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    updated_at = Column(DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    __table_args__ = (
+        Index("ix_manual_submission_profile_job", "profile_id", "job_id", unique=True),
     )
 
 

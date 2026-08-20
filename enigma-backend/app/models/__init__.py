@@ -33,6 +33,7 @@ from app.models.marketplace import (
     MarketplaceJobAssessment,
     MarketplaceApplication,
     MarketplaceActiveWork,
+    ManualOpportunitySubmission,
 )
 from app.models.oauth import (
     OAuthToken,
@@ -52,6 +53,7 @@ __all__ = [
     "DevelopmentPriority", "Issue",
     "MarketplaceAccountState", "MarketplaceJob", "MarketplaceJobAssessment",
     "MarketplaceApplication", "MarketplaceActiveWork",
+    "ManualOpportunitySubmission",
     "OAuthToken", "OAuthState",
     "ControlledApplicationPackageRecord",
     "ApplicationSubmissionIntent",

@@ -1,11 +1,11 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional, Literal
 from uuid import uuid4
 
 from fastapi import APIRouter, HTTPException, status, Depends
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -31,6 +31,12 @@ from app.freelancing.submission_intent_service import (
 )
 from app.models.user import User
 from app.models.marketplace import MarketplaceJob, MarketplaceJobAssessment
+from app.models.marketplace import ManualOpportunitySubmission
+from app.freelancing.manual_intake import (
+    DuplicateOpportunityError, ManualOpportunityService,
+    ManualOpportunityStateError, normalize_source_url,
+)
+from app.freelancing.controlled_application_package import ControlledApplicationPackageService, ReadinessGateError
 from app.work_market.models import (
     FreelanceJob,
     JobSource,
@@ -69,6 +75,134 @@ router = APIRouter(prefix="/api/freelancing", tags=["freelancing"])
 # Initialize submission intent service
 _submission_intent_service = SubmissionIntentService()
 _freelancer_discovery_service = FreelancerDiscoveryService(settings)
+_manual_intake_service = ManualOpportunityService()
+_manual_package_service = ControlledApplicationPackageService()
+
+SUPPORTED_MANUAL_PLATFORMS = {"workana", "peopleperhour", "upwork", "freelancer", "mostaql", "other"}
+SUPPORTED_LANGUAGES = {"ar", "en", "es", "fr"}
+MANUAL_LIFECYCLES = {"draft", "ready_for_analysis", "analyzed", "proposal_prepared", "approved", "manually_submitted", "client_replied", "won", "lost", "withdrawn", "expired"}
+
+
+class ManualOpportunityCreate(BaseModel):
+    platform: str = Field(..., max_length=40)
+    source_url: Optional[str] = Field(None, max_length=2000)
+    external_project_id: Optional[str] = Field(None, max_length=200)
+    title: str = Field(..., min_length=1, max_length=500)
+    original_description: str = Field(..., min_length=1, max_length=30000)
+    normalized_requirements: Dict[str, Any] = Field(default_factory=dict)
+    budget_type: Optional[Literal["fixed", "hourly", "negotiable"]] = None
+    budget_min: Optional[float] = Field(None, ge=0, le=100000000)
+    budget_max: Optional[float] = Field(None, ge=0, le=100000000)
+    currency: str = Field(default="USD", min_length=3, max_length=3, pattern=r"^[A-Za-z]{3}$")
+    required_skills: List[str] = Field(default_factory=list, max_length=50)
+    client_info: Dict[str, Any] = Field(default_factory=dict)
+    source_language: str = "en"
+    customer_preferred_language: str = "en"
+    proposal_language: str = "en"
+    translation_metadata: Dict[str, Any] = Field(default_factory=dict)
+    analyze: bool = False
+
+    @field_validator("platform")
+    @classmethod
+    def validate_platform(cls, value: str) -> str:
+        value = value.strip().lower()
+        if value not in SUPPORTED_MANUAL_PLATFORMS:
+            raise ValueError("Unsupported platform")
+        return value
+
+    @field_validator("source_language", "customer_preferred_language", "proposal_language")
+    @classmethod
+    def validate_language(cls, value: str) -> str:
+        value = value.strip().lower()
+        if value not in SUPPORTED_LANGUAGES:
+            raise ValueError("Unsupported language")
+        return value
+
+    @field_validator("required_skills")
+    @classmethod
+    def validate_manual_skills(cls, values: List[str]) -> List[str]:
+        cleaned = [" ".join(value.split()) for value in values]
+        if any(not value or len(value) > 100 for value in cleaned):
+            raise ValueError("Skills must contain 1 to 100 characters")
+        return cleaned
+
+    @field_validator("source_url")
+    @classmethod
+    def validate_source_url(cls, value: Optional[str]) -> Optional[str]:
+        return normalize_source_url(value)
+
+    @model_validator(mode="after")
+    def validate_budget(self) -> "ManualOpportunityCreate":
+        if self.budget_min is not None and self.budget_max is not None and self.budget_min > self.budget_max:
+            raise ValueError("budget_min cannot exceed budget_max")
+        return self
+
+
+class ManualOpportunityUpdate(BaseModel):
+    title: Optional[str] = Field(None, min_length=1, max_length=500)
+    original_description: Optional[str] = Field(None, min_length=1, max_length=30000)
+    source_url: Optional[str] = Field(None, max_length=2000)
+    external_project_id: Optional[str] = Field(None, max_length=200)
+    normalized_requirements: Optional[Dict[str, Any]] = None
+    budget_type: Optional[Literal["fixed", "hourly", "negotiable"]] = None
+    budget_min: Optional[float] = Field(None, ge=0, le=100000000)
+    budget_max: Optional[float] = Field(None, ge=0, le=100000000)
+    currency: Optional[str] = Field(None, min_length=3, max_length=3, pattern=r"^[A-Za-z]{3}$")
+    required_skills: Optional[List[str]] = Field(None, max_length=50)
+    client_info: Optional[Dict[str, Any]] = None
+    source_language: Optional[Literal["ar", "en", "es", "fr"]] = None
+    customer_preferred_language: Optional[Literal["ar", "en", "es", "fr"]] = None
+    proposal_language: Optional[Literal["ar", "en", "es", "fr"]] = None
+    translation_metadata: Optional[Dict[str, Any]] = None
+    lifecycle_status: Optional[str] = None
+
+    @field_validator("source_url")
+    @classmethod
+    def validate_update_url(cls, value: Optional[str]) -> Optional[str]:
+        return normalize_source_url(value)
+
+    @field_validator("lifecycle_status")
+    @classmethod
+    def validate_lifecycle(cls, value: Optional[str]) -> Optional[str]:
+        if value is not None and value not in MANUAL_LIFECYCLES:
+            raise ValueError("Invalid lifecycle status")
+        return value
+
+
+class ManualSubmissionRequest(BaseModel):
+    marketplace_proposal_id: Optional[str] = Field(None, max_length=200)
+    submitted_at: Optional[datetime] = None
+    proposal_text: str = Field(..., min_length=1, max_length=30000)
+    submitted_price: Optional[float] = Field(None, ge=0, le=100000000)
+    currency: str = Field(..., min_length=3, max_length=3, pattern=r"^[A-Za-z]{3}$")
+    delivery_estimate: Optional[str] = Field(None, max_length=200)
+    admin_notes: Optional[str] = Field(None, max_length=5000)
+
+
+class ManualOutcomeRequest(BaseModel):
+    outcome: Literal["manually_submitted", "client_replied", "won", "lost", "withdrawn", "expired"]
+    admin_notes: Optional[str] = Field(None, max_length=5000)
+
+
+def _manual_job_dict(job: MarketplaceJob, submission: Optional[ManualOpportunitySubmission] = None) -> Dict[str, Any]:
+    data = _durable_job_dict(job)
+    data.update({
+        "manual_entry": True, "no_live_api_connection": True,
+        "original_text": job.original_text or job.description,
+        "normalized_requirements": job.normalized_requirements or {},
+        "source_language": job.source_language, "customer_preferred_language": job.customer_preferred_language,
+        "proposal_language": job.proposal_language, "translation_metadata": job.translation_metadata or {},
+        "created_by_user_id": job.created_by_user_id,
+        "submission": ({
+            "marketplace_proposal_id": submission.marketplace_proposal_id,
+            "submitted_at": submission.submitted_at.isoformat(),
+            "proposal_text_snapshot": submission.proposal_text_snapshot,
+            "submitted_price": float(submission.submitted_price) if submission.submitted_price is not None else None,
+            "currency": submission.currency, "delivery_estimate": submission.delivery_estimate,
+            "outcome_status": submission.outcome_status, "admin_notes": submission.admin_notes,
+        } if submission else None),
+    })
+    return data
 
 
 class FreelancerSyncRequest(BaseModel):
@@ -251,6 +385,149 @@ async def get_freelancer_sync_summary(
     if summary is None:
         raise HTTPException(status_code=404, detail="No Freelancer sync has completed")
     return summary
+
+
+@router.post("/manual/preview")
+async def preview_manual_opportunity(
+    request: ManualOpportunityCreate,
+    current_user: User = Depends(require_admin_user),
+    db: AsyncSession = Depends(get_db),
+) -> Dict[str, Any]:
+    """Validate and normalize without writing."""
+    data = request.model_dump(exclude={"analyze"})
+    duplicate = await _manual_intake_service.find_duplicate(
+        db, platform=request.platform, external_project_id=request.external_project_id,
+        source_url=request.source_url, title=request.title, client_info=request.client_info,
+    )
+    return {"valid": True, "normalized": data, "duplicate": {"existing_job_id": duplicate.job_id} if duplicate else None}
+
+
+@router.post("/manual", status_code=status.HTTP_201_CREATED)
+async def create_manual_opportunity(
+    request: ManualOpportunityCreate,
+    current_user: User = Depends(require_admin_user),
+    db: AsyncSession = Depends(get_db),
+) -> Dict[str, Any]:
+    try:
+        job = await _manual_intake_service.create(
+            db, actor_id=str(current_user.id), data=request.model_dump(exclude={"analyze"}), analyze=request.analyze,
+        )
+    except DuplicateOpportunityError as exc:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail={"code": "duplicate_opportunity", "existing_job_id": exc.existing_job_id})
+    if request.analyze:
+        await analyze_manual_opportunity(job.job_id, current_user, db)
+        job = await _manual_intake_service.get(db, job.job_id)
+    return _manual_job_dict(job)
+
+
+@router.get("/manual")
+async def list_manual_opportunities(
+    current_user: User = Depends(require_admin_user), db: AsyncSession = Depends(get_db),
+) -> List[Dict[str, Any]]:
+    return [_manual_job_dict(job) for job in await _manual_intake_service.list(db)]
+
+
+@router.get("/manual/{job_id}")
+async def get_manual_opportunity(
+    job_id: str, current_user: User = Depends(require_admin_user), db: AsyncSession = Depends(get_db),
+) -> Dict[str, Any]:
+    job = await _manual_intake_service.get(db, job_id)
+    if not job:
+        raise HTTPException(status_code=404, detail="Manual opportunity not found")
+    submission = await db.scalar(select(ManualOpportunitySubmission).where(
+        ManualOpportunitySubmission.profile_id == "enigma_profile", ManualOpportunitySubmission.job_id == job_id,
+    ))
+    assessment = await db.scalar(select(MarketplaceJobAssessment).where(
+        MarketplaceJobAssessment.profile_id == "enigma_profile", MarketplaceJobAssessment.job_id == job_id,
+    ))
+    result = _manual_job_dict(job, submission)
+    result["assessment"] = _durable_job_dict(job, assessment).get("assessment") if assessment else None
+    return result
+
+
+@router.patch("/manual/{job_id}")
+async def update_manual_opportunity(
+    job_id: str, request: ManualOpportunityUpdate,
+    current_user: User = Depends(require_admin_user), db: AsyncSession = Depends(get_db),
+) -> Dict[str, Any]:
+    job = await _manual_intake_service.get(db, job_id)
+    if not job:
+        raise HTTPException(status_code=404, detail="Manual opportunity not found")
+    data = request.model_dump(exclude_unset=True)
+    min_budget = data.get("budget_min", float(job.budget_min) if job.budget_min is not None else None)
+    max_budget = data.get("budget_max", float(job.budget_max) if job.budget_max is not None else None)
+    if min_budget is not None and max_budget is not None and min_budget > max_budget:
+        raise HTTPException(status_code=422, detail="budget_min cannot exceed budget_max")
+    try:
+        return _manual_job_dict(await _manual_intake_service.update(db, job=job, data=data))
+    except DuplicateOpportunityError as exc:
+        raise HTTPException(status_code=409, detail={"code": "duplicate_opportunity", "existing_job_id": exc.existing_job_id})
+    except ManualOpportunityStateError as exc:
+        raise HTTPException(status_code=409, detail=str(exc))
+
+
+@router.post("/manual/{job_id}/analyze")
+async def analyze_manual_opportunity(
+    job_id: str, current_user: User = Depends(require_admin_user), db: AsyncSession = Depends(get_db),
+) -> Dict[str, Any]:
+    job = await _manual_intake_service.get(db, job_id)
+    if not job:
+        raise HTTPException(status_code=404, detail="Manual opportunity not found")
+    from app.routers.enigma_profile import assess_existing_job
+    result = await assess_existing_job(job_id, current_user, db)
+    job.lifecycle_status = "analyzed"
+    await db.commit()
+    return result.model_dump() if hasattr(result, "model_dump") else result
+
+
+@router.post("/manual/{job_id}/proposal-package")
+async def prepare_manual_proposal_package(
+    job_id: str, current_user: User = Depends(require_admin_user), db: AsyncSession = Depends(get_db),
+) -> Dict[str, Any]:
+    job = await _manual_intake_service.get(db, job_id)
+    if not job:
+        raise HTTPException(status_code=404, detail="Manual opportunity not found")
+    try:
+        package = await _manual_package_service.build(
+            user=current_user, opportunity_title=job.title, opportunity_description=job.description,
+            platform=job.platform, required_skills=job.skills_required or [], opportunity_id=job.job_id,
+            target_id=None, db=db,
+        )
+    except ReadinessGateError as exc:
+        raise HTTPException(status_code=409, detail={"code": "opportunity_not_ready", "decision": exc.decision})
+    job.lifecycle_status = "proposal_prepared"
+    await db.commit()
+    return package.to_dict()
+
+
+@router.post("/manual/{job_id}/submission", status_code=status.HTTP_201_CREATED)
+async def record_manual_submission(
+    job_id: str, request: ManualSubmissionRequest,
+    current_user: User = Depends(require_admin_user), db: AsyncSession = Depends(get_db),
+) -> Dict[str, Any]:
+    job = await _manual_intake_service.get(db, job_id)
+    if not job:
+        raise HTTPException(status_code=404, detail="Manual opportunity not found")
+    try:
+        record = await _manual_intake_service.record_submission(db, job=job, actor_id=str(current_user.id), data=request.model_dump())
+    except ManualOpportunityStateError as exc:
+        raise HTTPException(status_code=409, detail=str(exc))
+    return _manual_job_dict(job, record)
+
+
+@router.patch("/manual/{job_id}/outcome")
+async def update_manual_submission_outcome(
+    job_id: str, request: ManualOutcomeRequest,
+    current_user: User = Depends(require_admin_user), db: AsyncSession = Depends(get_db),
+) -> Dict[str, Any]:
+    job = await _manual_intake_service.get(db, job_id)
+    if not job:
+        raise HTTPException(status_code=404, detail="Manual opportunity not found")
+    try:
+        record = await _manual_intake_service.update_outcome(db, job=job, outcome=request.outcome, notes=request.admin_notes)
+    except ManualOpportunityStateError as exc:
+        raise HTTPException(status_code=409, detail=str(exc))
+    return _manual_job_dict(job, record)
 
 
 @router.get("/jobs")
