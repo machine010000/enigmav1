@@ -57,6 +57,11 @@ class Settings(BaseSettings):
     FREELANCER_CLIENT_ID: str = os.getenv("FREELANCER_CLIENT_ID", "")
     FREELANCER_CLIENT_SECRET: str = os.getenv("FREELANCER_CLIENT_SECRET", "")
     FREELANCER_REDIRECT_URI: str = os.getenv("FREELANCER_REDIRECT_URI", "")
+    FREELANCER_API_TOKEN: str = os.getenv("FREELANCER_API_TOKEN", "")
+    FREELANCER_SANDBOX: bool = os.getenv("FREELANCER_SANDBOX", "false").lower() == "true"
+
+    # Canonical administrative identity used by admin-only API dependencies.
+    ADMIN_USER_EMAIL: str = os.getenv("ADMIN_USER_EMAIL", "admin@enigma.local")
     
     # Mostaql Marketplace Adapter - No localhost default for production (TASK-051)
     MOSTAQL_CLIENT_ID: str = os.getenv("MOSTAQL_CLIENT_ID", "")

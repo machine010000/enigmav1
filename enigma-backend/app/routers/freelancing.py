@@ -5,11 +5,23 @@ from typing import Dict, List, Optional
 from uuid import uuid4
 
 from fastapi import APIRouter, HTTPException, status, Depends
+from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.routers.auth import get_current_user
+from app.routers.auth import get_current_user, require_admin_user
+from app.core.config import settings
 from app.database import get_db
+from app.freelancing.freelancer_client import (
+    FreelancerClientError,
+    FreelancerRateLimited,
+    FreelancerTimeout,
+    FreelancerUnauthorized,
+)
+from app.freelancing.freelancer_discovery_service import (
+    FreelancerDiscoveryService,
+    FreelancerNotConfiguredError,
+)
 from app.freelancing.submission_intent_service import (
     SubmissionIntentService,
     IntentNotFoundError,
@@ -56,6 +68,32 @@ router = APIRouter(prefix="/api/freelancing", tags=["freelancing"])
 
 # Initialize submission intent service
 _submission_intent_service = SubmissionIntentService()
+_freelancer_discovery_service = FreelancerDiscoveryService(settings)
+
+
+class FreelancerSyncRequest(BaseModel):
+    query: Optional[str] = Field(default=None, max_length=200)
+    skills: List[str] = Field(default_factory=list, max_length=20)
+    limit: int = Field(default=25, ge=1, le=50)
+
+    @field_validator("query")
+    @classmethod
+    def normalize_query(cls, value: Optional[str]) -> Optional[str]:
+        if value is None:
+            return None
+        normalized = " ".join(value.split())
+        return normalized or None
+
+    @field_validator("skills")
+    @classmethod
+    def validate_skills(cls, values: List[str]) -> List[str]:
+        normalized = []
+        for value in values:
+            skill = " ".join(value.split())
+            if not skill or len(skill) > 64:
+                raise ValueError("Each skill must contain 1 to 64 characters")
+            normalized.append(skill)
+        return normalized
 
 # Initialize repositories
 platform_repository = InMemoryPlatformRepository()
@@ -156,6 +194,63 @@ async def get_platform(platform_id: str) -> Dict:
     if not platform:
         raise HTTPException(status_code=404, detail=f"Platform {platform_id} not found")
     return platform.to_dict()
+
+
+@router.get("/freelancer/connection/status")
+async def get_freelancer_connection_status(
+    current_user: User = Depends(require_admin_user),
+) -> Dict:
+    """Return configuration/runtime state without contacting Freelancer.com."""
+    connection = _freelancer_discovery_service.connection_status()
+    return {
+        "platform": connection.platform,
+        "state": connection.state,
+        "configured": connection.configured,
+        "sandbox": connection.sandbox,
+        "last_sync_at": connection.last_sync_at,
+        "last_error_code": connection.last_error_code,
+    }
+
+
+@router.post("/freelancer/sync")
+async def sync_freelancer_opportunities(
+    request: FreelancerSyncRequest,
+    current_user: User = Depends(require_admin_user),
+    db: AsyncSession = Depends(get_db),
+) -> Dict:
+    """Run one explicit, admin-triggered, read-only discovery transaction."""
+    try:
+        return await _freelancer_discovery_service.sync(
+            db,
+            query=request.query,
+            skills=request.skills,
+            limit=request.limit,
+        )
+    except FreelancerNotConfiguredError as exc:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail={"code": "not_configured", "message": str(exc)})
+    except FreelancerUnauthorized:
+        _freelancer_discovery_service.record_upstream_error("upstream_unauthorized")
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail={"code": "upstream_unauthorized", "message": "Freelancer authentication was rejected"})
+    except FreelancerRateLimited:
+        _freelancer_discovery_service.record_upstream_error("upstream_rate_limited")
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail={"code": "upstream_rate_limited", "message": "Freelancer rate limit reached"})
+    except FreelancerTimeout:
+        _freelancer_discovery_service.record_upstream_error("upstream_timeout")
+        raise HTTPException(status_code=status.HTTP_504_GATEWAY_TIMEOUT, detail={"code": "upstream_timeout", "message": "Freelancer request timed out"})
+    except FreelancerClientError:
+        _freelancer_discovery_service.record_upstream_error("upstream_error")
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail={"code": "upstream_error", "message": "Freelancer discovery failed"})
+
+
+@router.get("/freelancer/sync/summary")
+async def get_freelancer_sync_summary(
+    current_user: User = Depends(require_admin_user),
+) -> Dict:
+    """Return the latest process-local safe sync metadata."""
+    summary = _freelancer_discovery_service.last_summary()
+    if summary is None:
+        raise HTTPException(status_code=404, detail="No Freelancer sync has completed")
+    return summary
 
 
 @router.get("/jobs")

@@ -38,6 +38,7 @@ class FreelancerMarketplaceAdapter(MarketplaceOpportunityAdapter):
         self.token = token
         self.sandbox = sandbox
         self.client = FreelancerClient(token, sandbox=sandbox)
+        self.discovery_skipped_count = 0
 
     async def close(self):
         """Close HTTP client."""
@@ -83,13 +84,16 @@ class FreelancerMarketplaceAdapter(MarketplaceOpportunityAdapter):
 
         projects = result.get("projects", [])
         opportunities = []
+        self.discovery_skipped_count = 0
 
         for project_data in projects:
             try:
                 opportunity = self._normalize_project(project_data)
                 opportunities.append(opportunity)
             except Exception as e:
-                logger.warning(f"Failed to normalize Freelancer project {project_data.get('id')}: {e}")
+                project_id = project_data.get("id") if isinstance(project_data, dict) else None
+                logger.warning("Failed to normalize Freelancer project", extra={"project_id": project_id, "error_type": type(e).__name__})
+                self.discovery_skipped_count += 1
                 # Skip malformed projects; continue with others
 
         return opportunities

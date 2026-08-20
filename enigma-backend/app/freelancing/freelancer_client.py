@@ -41,6 +41,12 @@ class FreelancerRateLimited(FreelancerClientError):
     pass
 
 
+class FreelancerTimeout(FreelancerClientError):
+    """The upstream marketplace did not respond within the configured timeout."""
+
+    pass
+
+
 class FreelancerClient:
     """Read-only Freelancer.com API client.
     
@@ -130,7 +136,7 @@ class FreelancerClient:
         try:
             response = await client.request(method, endpoint, params=params)
         except httpx.TimeoutException as e:
-            raise FreelancerClientError(f"Request timeout: {e}") from e
+            raise FreelancerTimeout("Freelancer request timed out") from e
         except httpx.RequestError as e:
             raise FreelancerClientError(f"Request failed: {e}") from e
 

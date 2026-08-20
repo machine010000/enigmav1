@@ -88,6 +88,18 @@ async def get_current_user(token: str = Depends(oauth2_scheme), db: AsyncSession
         raise credentials_exception
     return user
 
+
+async def require_admin_user(current_user: User = Depends(get_current_user)) -> User:
+    """Require the authenticated bootstrap-admin identity."""
+    admin_email = settings.ADMIN_USER_EMAIL.strip().lower()
+    if (
+        not admin_email
+        or current_user.email.strip().lower() != admin_email
+        or current_user.plan != "admin"
+    ):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admin access required")
+    return current_user
+
 @router.post("/register", response_model=Token)
 async def register(user_data: UserCreate, db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(User).where(User.email == user_data.email))
@@ -141,16 +153,19 @@ async def admin_login(payload: dict, db: AsyncSession = Depends(get_db)):
         raise HTTPException(status_code=400, detail="Incorrect admin credentials")
 
     # Upsert a local admin user record to associate with the token
-    admin_email = os.getenv("ADMIN_USER_EMAIL", "admin@enigma.local")
+    admin_email = settings.ADMIN_USER_EMAIL
 
     result = await db.execute(select(User).where(User.email == admin_email))
     user = result.scalar_one_or_none()
     if not user:
         # Create a minimal user row for admin access
-        user = User(email=admin_email, name="Enigma Admin", hashed_password=get_password_hash("admin-temp"))
+        user = User(email=admin_email, name="Enigma Admin", hashed_password=get_password_hash("admin-temp"), plan="admin")
         db.add(user)
         await db.commit()
         await db.refresh(user)
+    elif user.plan != "admin":
+        user.plan = "admin"
+        await db.commit()
 
     token = create_access_token({"sub": str(user.id)})
     return {"access_token": token, "token_type": "bearer"}
