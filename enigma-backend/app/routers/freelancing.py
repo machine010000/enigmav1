@@ -124,7 +124,7 @@ async def get_freelancing_overview(current_user: User = Depends(get_current_user
     platforms = platform_registry.get_all_platforms()
     connected_platforms = [p for p in platforms if p.connection_status.value == "connected"]
     
-    jobs_discovered = await db.scalar(select(func.count(MarketplaceJob.id)).where(MarketplaceJob.profile_id == str(current_user.id)))
+    jobs_discovered = await db.scalar(select(func.count(MarketplaceJob.id)).where(MarketplaceJob.profile_id == "enigma_profile"))
     return {
         "status": "active",
         "platforms_connected": len(connected_platforms),
@@ -166,7 +166,7 @@ async def get_jobs(current_user: User = Depends(get_current_user), db: AsyncSess
     Returns list of jobs with their basic information.
     """
     jobs = (await db.execute(
-        select(MarketplaceJob).where(MarketplaceJob.profile_id == str(current_user.id)).order_by(MarketplaceJob.last_seen_at.desc())
+        select(MarketplaceJob).where(MarketplaceJob.profile_id == "enigma_profile").order_by(MarketplaceJob.last_seen_at.desc())
     )).scalars().all()
     return [_durable_job_dict(job) for job in jobs]
 
@@ -178,11 +178,11 @@ async def get_job(job_id: str, current_user: User = Depends(get_current_user), d
     
     Returns full job details including classification and evaluation.
     """
-    job = await db.scalar(select(MarketplaceJob).where(MarketplaceJob.job_id == job_id, MarketplaceJob.profile_id == str(current_user.id)))
+    job = await db.scalar(select(MarketplaceJob).where(MarketplaceJob.job_id == job_id, MarketplaceJob.profile_id == "enigma_profile"))
     if not job:
         raise HTTPException(status_code=404, detail=f"Job {job_id} not found")
     
-    assessment = await db.scalar(select(MarketplaceJobAssessment).where(MarketplaceJobAssessment.job_id == job_id, MarketplaceJobAssessment.profile_id == str(current_user.id)))
+    assessment = await db.scalar(select(MarketplaceJobAssessment).where(MarketplaceJobAssessment.job_id == job_id, MarketplaceJobAssessment.profile_id == "enigma_profile"))
     
     return {
         "job": _durable_job_dict(job, assessment),
@@ -210,11 +210,11 @@ async def get_job_assessment(job_id: str, current_user: User = Depends(get_curre
     
     Returns Enigma's assessment of job readiness including blockers and risks.
     """
-    job = await db.scalar(select(MarketplaceJob).where(MarketplaceJob.job_id == job_id, MarketplaceJob.profile_id == str(current_user.id)))
+    job = await db.scalar(select(MarketplaceJob).where(MarketplaceJob.job_id == job_id, MarketplaceJob.profile_id == "enigma_profile"))
     if not job:
         raise HTTPException(status_code=404, detail=f"Job {job_id} not found")
     
-    assessment = await db.scalar(select(MarketplaceJobAssessment).where(MarketplaceJobAssessment.job_id == job_id, MarketplaceJobAssessment.profile_id == str(current_user.id)))
+    assessment = await db.scalar(select(MarketplaceJobAssessment).where(MarketplaceJobAssessment.job_id == job_id, MarketplaceJobAssessment.profile_id == "enigma_profile"))
     if not assessment:
         raise HTTPException(status_code=404, detail="No durable assessment exists for this job")
     return {
@@ -240,11 +240,11 @@ async def start_job_research(job_id: str, current_user: User = Depends(get_curre
     Triggers research process to fill knowledge gaps.
     Returns research status and learning requirements.
     """
-    job = await db.scalar(select(MarketplaceJob).where(MarketplaceJob.job_id == job_id, MarketplaceJob.profile_id == str(current_user.id)))
+    job = await db.scalar(select(MarketplaceJob).where(MarketplaceJob.job_id == job_id, MarketplaceJob.profile_id == "enigma_profile"))
     if not job:
         raise HTTPException(status_code=404, detail=f"Job {job_id} not found")
     
-    assessment = await db.scalar(select(MarketplaceJobAssessment).where(MarketplaceJobAssessment.job_id == job_id, MarketplaceJobAssessment.profile_id == str(current_user.id)))
+    assessment = await db.scalar(select(MarketplaceJobAssessment).where(MarketplaceJobAssessment.job_id == job_id, MarketplaceJobAssessment.profile_id == "enigma_profile"))
     if not assessment:
         raise HTTPException(status_code=400, detail="Job must be assessed first")
     
