@@ -33,7 +33,7 @@ from app.models.user import User
 from app.models.marketplace import MarketplaceJob, MarketplaceJobAssessment
 from app.models.marketplace import ManualOpportunitySubmission
 from app.freelancing.manual_intake import (
-    DuplicateOpportunityError, ManualOpportunityService,
+    DuplicateOpportunityError, ManualOpportunityService, duplicate_opportunity_detail,
     ManualOpportunityStateError, normalize_source_url,
 )
 from app.freelancing.controlled_application_package import ControlledApplicationPackageService, ReadinessGateError
@@ -413,7 +413,7 @@ async def create_manual_opportunity(
         await db.refresh(job)
     except DuplicateOpportunityError as exc:
         await db.rollback()
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail={"code": "duplicate_opportunity", "existing_job_id": exc.existing_job_id})
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=duplicate_opportunity_detail(exc))
     except Exception:
         await db.rollback()
         raise
@@ -470,7 +470,7 @@ async def update_manual_opportunity(
         return _manual_job_dict(updated)
     except DuplicateOpportunityError as exc:
         await db.rollback()
-        raise HTTPException(status_code=409, detail={"code": "duplicate_opportunity", "existing_job_id": exc.existing_job_id})
+        raise HTTPException(status_code=409, detail=duplicate_opportunity_detail(exc))
     except ManualOpportunityStateError as exc:
         await db.rollback()
         raise HTTPException(status_code=409, detail=str(exc))

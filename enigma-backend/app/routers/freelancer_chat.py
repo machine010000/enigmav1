@@ -7,7 +7,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
-from app.freelancing.manual_intake import DuplicateOpportunityError
+from app.freelancing.manual_intake import DuplicateOpportunityError, duplicate_opportunity_detail
 from app.freelancing.project_chat import FreelancerChatService
 from app.models.user import User
 from app.routers.auth import require_admin_user
@@ -74,7 +74,7 @@ async def chat(
         return result
     except DuplicateOpportunityError as exc:
         await db.rollback()
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=exc.to_dict())
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=duplicate_opportunity_detail(exc))
     except ValueError as exc:
         await db.rollback()
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))

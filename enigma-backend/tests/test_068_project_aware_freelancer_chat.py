@@ -7,11 +7,12 @@ from unittest.mock import AsyncMock
 import pytest
 from alembic.migration import MigrationContext
 from alembic.operations import Operations
+from fastapi import HTTPException
 from sqlalchemy import create_engine, inspect
 from sqlalchemy.orm import Session
 
 from app.creativity.ai_service import CreativeTaskResult
-from app.freelancing.manual_intake import ManualOpportunityStateError
+from app.freelancing.manual_intake import DuplicateOpportunityError, ManualOpportunityStateError
 from app.freelancing.project_chat import (
     FreelancerChatService,
     FreelancerIntentRouter,
@@ -26,6 +27,8 @@ from app.models.freelancer_chat import (
 from app.models.marketplace import MarketplaceJob
 from app.routers import freelancer_chat as chat_router
 from app.routers.freelancer_chat import ChatRequest, OpportunityInput
+from app.routers import freelancing as manual_router
+from app.routers.freelancing import ManualOpportunityCreate
 from app.routers.auth import require_admin_user
 
 
@@ -394,3 +397,73 @@ async def test_http_boundary_rolls_back_failed_multi_step_chat(monkeypatch):
 def test_optional_opportunity_payload_rejects_invalid_budget():
     with pytest.raises(ValueError):
         OpportunityInput(title="Job", budget_min=200, budget_max=100)
+
+
+@pytest.mark.asyncio
+async def test_chat_sample_is_project_private_by_default_and_user_scoped():
+    chat = service()
+    project_a = project("project-a", "Accounting API", "user-a")
+    chat._owned_project = AsyncMock(return_value=project_a)
+    result = await chat._add_sample_from_chat(
+        None, "user-a", project_a, "save this example", "add_sample",
+    )
+    assert result["data"]["visibility"] == "project_private"
+    assert [item["content"] for item in await chat.samples(None, user_id="user-a", project_id="project-a")] == ["save this example"]
+    assert await chat.samples(None, user_id="user-a", project_id="project-b") == []
+    assert await chat.samples(None, user_id="user-b", project_id="project-a") == []
+
+
+@pytest.mark.parametrize("message", [
+    "make this reusable across projects",
+    "use this example in future projects",
+    "خزن المثال ده كخبرة عامة",
+    "استخدم المثال ده في المشاريع المستقبلية",
+])
+@pytest.mark.asyncio
+async def test_explicit_promotion_makes_sample_reusable_for_same_user_only(message):
+    chat = service()
+    project_a = project("project-a", "Accounting API", "user-a")
+    chat._owned_project = AsyncMock(return_value=project_a)
+    assert FreelancerIntentRouter.classify(message) == "add_sample"
+    result = await chat._add_sample_from_chat(None, "user-a", project_a, message, "add_sample")
+    assert result["data"]["visibility"] == "reusable_global"
+    assert len(await chat.samples(None, user_id="user-a", project_id="project-b")) == 1
+    assert await chat.samples(None, user_id="user-b", project_id="project-b") == []
+
+
+@pytest.mark.asyncio
+async def test_relevant_samples_require_positive_score_after_scope_filtering():
+    chat = service()
+    await chat._artifact(None, user_id="user-a", project_id="project-a", artifact_type="sample", content="FastAPI OAuth success", data={"skills": ["FastAPI"]}, visibility="project_private")
+    await chat._artifact(None, user_id="user-a", project_id="project-a", artifact_type="sample", content="Unrelated watercolor painting", data={}, visibility="project_private")
+    await chat._artifact(None, user_id="user-a", project_id="project-b", artifact_type="sample", content="FastAPI foreign private", data={}, visibility="project_private")
+    await chat._artifact(None, user_id="user-a", project_id="project-b", artifact_type="sample", content="Reusable FastAPI delivery", data={}, visibility="reusable_global")
+    await chat._artifact(None, user_id="user-b", project_id="foreign", artifact_type="sample", content="FastAPI other user", data={}, visibility="reusable_global")
+    relevant = await chat._relevant_samples(None, user_id="user-a", project_id="project-a", context="Build a FastAPI service")
+    assert [item["content"] for item in relevant] == ["FastAPI OAuth success", "Reusable FastAPI delivery"]
+    assert await chat._relevant_samples(None, user_id="user-a", project_id="project-a", context="quantum chemistry") == []
+
+
+@pytest.mark.asyncio
+async def test_chat_and_manual_intake_share_duplicate_http_contract(monkeypatch):
+    duplicate = DuplicateOpportunityError("existing-job")
+    monkeypatch.setattr(chat_router, "service", SimpleNamespace(handle=AsyncMock(side_effect=duplicate)))
+    chat_db = SimpleNamespace(commit=AsyncMock(), rollback=AsyncMock())
+    with pytest.raises(HTTPException) as chat_error:
+        await chat_router.chat(ChatRequest(message="duplicate opportunity"), SimpleNamespace(id="user-a"), chat_db)
+
+    monkeypatch.setattr(manual_router._manual_intake_service, "create", AsyncMock(side_effect=DuplicateOpportunityError("existing-job")))
+    manual_db = SimpleNamespace(commit=AsyncMock(), rollback=AsyncMock(), refresh=AsyncMock())
+    request = ManualOpportunityCreate(
+        platform="upwork", title="Duplicate", original_description="Original",
+        currency="USD", source_language="en", customer_preferred_language="en",
+        proposal_language="en", analyze=False,
+    )
+    with pytest.raises(HTTPException) as manual_error:
+        await manual_router.create_manual_opportunity(request, SimpleNamespace(id="user-a"), manual_db)
+
+    expected = {"code": "duplicate_opportunity", "existing_job_id": "existing-job"}
+    assert chat_error.value.status_code == manual_error.value.status_code == 409
+    assert chat_error.value.detail == manual_error.value.detail == expected
+    chat_db.rollback.assert_awaited_once()
+    manual_db.rollback.assert_awaited_once()

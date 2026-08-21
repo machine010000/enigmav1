@@ -63,7 +63,11 @@ class FreelancerIntentRouter:
         rules = (
             ("record_loss", ("خسرنا", "لم نفز", "record loss", "mark lost", "lost the proposal")),
             ("record_win", ("كسبنا", "فزنا", "record win", "mark won", "won the project")),
-            ("add_sample", ("خزن المثال", "احفظ المثال", "add sample", "save this example")),
+            ("add_sample", (
+                "خزن المثال", "احفظ المثال", "استخدم المثال ده في المشاريع المستقبلية",
+                "add sample", "save this example", "make this reusable across projects",
+                "use this example in future projects",
+            )),
             ("proposal_request", ("اكتبلي عرض", "اكتب عرض", "جهز عرض", "proposal", "cover letter")),
             ("client_reply_request", ("رد عليه", "اكتب رد", "جهز الرد", "reply to", "draft a reply")),
             ("client_message", ("العميل رد", "client replied", "client said", "رسالة العميل")),
@@ -422,8 +426,10 @@ class FreelancerChatService:
         return {"reply": material.knowledge_summary, "data": {"academy_artifact_id": artifact.id, **material.to_dict()}, "capabilities": [decision.capability or "academy_learning"]}
 
     async def _add_sample_from_chat(self, db, user_id, project, message, intent):
-        artifact = await self.add_sample(db, user_id=user_id, content=message, sample_type="chat_example", project_id=project.job_id if project else None, reusable=True, metadata={"outcome": None, "skills": project.skills_required if project else []})
-        return {"reply": "The example was stored as reusable retrieval context.", "data": {"sample_id": artifact.id}, "capabilities": ["durable_context"]}
+        reusable = self._explicit_global_reuse(message)
+        artifact = await self.add_sample(db, user_id=user_id, content=message, sample_type="chat_example", project_id=project.job_id if project else None, reusable=reusable, metadata={"outcome": None, "skills": project.skills_required if project else []})
+        scope = "reusable across your projects" if reusable else "private to this project"
+        return {"reply": f"The example was stored {scope}.", "data": {"sample_id": artifact.id, "visibility": artifact.visibility}, "capabilities": ["durable_context"]}
 
     async def _project_switch(self, db, user_id, project, message, intent):
         return {"reply": f"Current project is now {project.title}." if project else "No project matched.", "data": {"project_id": project.job_id if project else None}, "capabilities": []}
@@ -481,7 +487,17 @@ class FreelancerChatService:
             ])
             sample_tokens = set(self.resolver._normalize(searchable).split())
             return len(tokens & sample_tokens)
-        return sorted(samples, key=lambda item: (-relevance(item), item["artifact_id"]))[:5]
+        scored = [(relevance(sample), sample) for sample in samples]
+        return [sample for score, sample in sorted(scored, key=lambda item: (-item[0], item[1]["artifact_id"])) if score > 0][:5]
+
+    @staticmethod
+    def _explicit_global_reuse(message):
+        text = FreelancerProjectResolver._normalize(message)
+        return any(term in text for term in (
+            "خبرة عامة", "المشاريع المستقبلية", "كل المشاريع",
+            "reusable across projects", "across future projects", "use in future projects",
+            "use this example in future projects",
+        ))
 
     async def _owned_project(self, db, user_id, project_id):
         return await db.scalar(select(MarketplaceJob).where(

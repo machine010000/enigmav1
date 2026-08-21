@@ -40,6 +40,11 @@ class DuplicateOpportunityError(Exception):
         super().__init__(f"Duplicate opportunity: {existing_job_id}")
 
 
+def duplicate_opportunity_detail(exc: DuplicateOpportunityError) -> dict[str, str]:
+    """Canonical public duplicate contract shared by manual and Chat intake."""
+    return {"code": "duplicate_opportunity", "existing_job_id": exc.existing_job_id}
+
+
 class ManualOpportunityStateError(Exception):
     pass
 
