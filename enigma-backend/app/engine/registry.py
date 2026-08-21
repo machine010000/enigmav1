@@ -25,11 +25,13 @@ def register_all() -> List[str]:
     from app.workers.product_verification import product_verification_worker
     from app.workers.market_analysis import market_analysis_worker
     from app.workers.keyword_research import keyword_research_worker  # TASK-018
+    from app.workers.academy_learning import academy_learning_worker
 
     workers: List[Worker] = [
         product_verification_worker,
         market_analysis_worker,
         keyword_research_worker,
+        academy_learning_worker,
     ]
 
     # Register workers with the Engine

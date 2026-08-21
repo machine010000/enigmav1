@@ -29,7 +29,7 @@ class CreativityEngine(CreativityEngineContract):
     constraints, economics, and other context factors.
     """
     
-    def __init__(self):
+    def __init__(self, ai_service=None):
         """Initialize the creativity engine."""
         self.engine_id = "rule_based_creativity_v1"
         self.name = "Rule-Based Creativity Engine"
@@ -39,6 +39,14 @@ class CreativityEngine(CreativityEngineContract):
         self.constraint_detector = ConstraintDetector()
         self.strategy_evaluator = StrategyEvaluator()
         self.strategy_ranker = StrategyRanker()
+        self._ai_service = ai_service
+
+    async def generate_for_task(self, *, task: str, project_context: dict):
+        """Generate structured AI options while preserving the rule-based API."""
+        if self._ai_service is None:
+            from app.creativity.ai_service import CreativityAIService
+            self._ai_service = CreativityAIService()
+        return await self._ai_service.generate(task=task, project_context=project_context)
     
     def generate_strategies(
         self,

@@ -6,7 +6,7 @@ These are domain-agnostic strategies that can be applied
 across different expert domains.
 """
 
-from typing import Set, Optional
+from typing import List, Set, Optional
 from dataclasses import dataclass
 
 from app.creativity.contracts import (

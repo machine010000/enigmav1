@@ -66,6 +66,10 @@ class ProductVerificationWorker(Worker):
         "attributes",
         "confidence",
         "issues",
+        "risks",
+        "missing_information",
+        "evidence_context",
+        "recommendation",
     ]
 
     capabilities = [
@@ -491,6 +495,25 @@ class ProductVerificationWorker(Worker):
             else 0.0
         )
 
+        risks = list(dict.fromkeys(issues))
+        missing_information = []
+        if not description:
+            missing_information.append("product description")
+        if not images:
+            missing_information.append("product images")
+        if not attributes:
+            missing_information.append("structured product attributes")
+        if aggregate_confidence < 0.4:
+            recommendation = "fail"
+        elif aggregate_confidence < threshold or missing_information or risks:
+            recommendation = "review"
+        else:
+            recommendation = "pass"
+        evidence_context = [
+            {key: item.get(key) for key in ("field", "source", "confidence", "reasoning", "note") if item.get(key) is not None}
+            for item in evidence
+        ]
+
         result_data = {
             "verified_name": verified_name,
             "category": category,
@@ -500,6 +523,10 @@ class ProductVerificationWorker(Worker):
                 4,
             ),
             "issues": issues,
+            "risks": risks,
+            "missing_information": missing_information,
+            "evidence_context": evidence_context,
+            "recommendation": recommendation,
         }
 
         await _emit(

@@ -566,10 +566,11 @@ async def test_16_cross_user_security_intact():
 # TEST 17: TASK-017 assessment regressions
 # ---------------------------------------------------------------------------
 
-def test_17_task017_catalog_still_has_13_entries():
-    """TEST 17: keyword_research is now executable; catalog still has 13 entries."""
+def test_17_task017_catalog_has_academy_entry():
+    """Academy learning extends the catalog without changing keyword research."""
     all_entries = capability_catalog.list_all()
-    assert len(all_entries) == 13
+    assert len(all_entries) == 14
+    assert capability_catalog.get("academy_learning").execution_available is True
 
     kw_entry = capability_catalog.get("keyword_research")
     assert kw_entry is not None

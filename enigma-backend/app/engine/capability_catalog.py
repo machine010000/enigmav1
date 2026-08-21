@@ -75,6 +75,17 @@ class CatalogEntry:
 _ENTRIES: List[CatalogEntry] = [
     # --- Currently executable (workers exist) ---
     CatalogEntry(
+        capability_id="academy_learning",
+        name="Academy Learning",
+        description="Generate governed learning material for a task or capability gap.",
+        category="learning",
+        module="service_provider",
+        execution_available=True,
+        freelance_readiness_threshold=0.65,
+        risk_level="low",
+        aliases=["learn capability", "training material", "academy research"],
+    ),
+    CatalogEntry(
         capability_id="product_verification",
         name="Product Verification",
         description="Verify and normalise product metadata including name, category, and quality signals.",

@@ -153,6 +153,26 @@ class MasterBrain:
             BrainDecision with action, capability, and execution details
         """
         message_lower = message.lower()
+
+        if any(term in message_lower for term in ("learn ", "training material", "capability gap", "study ")):
+            resolution = capability_registry.resolve_capability("academy_learning")
+            if resolution is not None:
+                supplied = context or {}
+                topic = supplied.get("topic") or supplied.get("capability_gap") or message
+                return BrainDecision(
+                    action=BrainAction.EXECUTE_CAPABILITY,
+                    intent="academy_learning",
+                    capability="academy_learning",
+                    target=None,
+                    reasoning_summary="Academy learning can close the requested capability gap.",
+                    execution_required=True,
+                    execution_input={
+                        "topic": topic,
+                        "task": supplied.get("task", message),
+                        "capability_gap": supplied.get("capability_gap"),
+                    },
+                    confidence=0.9,
+                )
         
         # Check for Seller/product verification requests
         if "verify" in message_lower and "product" in message_lower:
