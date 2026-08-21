@@ -5,6 +5,7 @@ import { useAuth } from "../auth/provider";
 import { useLocale } from "../i18n/provider";
 import { freelancingCopy } from "../i18n/freelancing";
 import { ApiError, apiRequest } from "../lib/api";
+import { FreelancerChat } from "./freelancer-chat";
 
 type Overview = { status: string; jobs_discovered: number };
 type Job = { job_id: string; source: string; title: string; description: string; source_url?: string; platform_job_id?: string; client_information?: Record<string, unknown>; budget_min?: number; budget_max?: number; currency?: string; skills?: string[]; last_seen_at?: string };
@@ -140,6 +141,7 @@ export function FreelancingControlCenter() {
 
   return <section className="workspace control-center">
     <div className="workspace-header"><div><span className="eyebrow">{copy.title}</span><h1>{copy.title}</h1><p>{copy.intro}</p></div><span className="status">{workspace.overview?.status ?? copy.pending}</span></div>
+    <FreelancerChat />
     <section className="workspace-panel manual-intake-panel">
       <div className="panel-heading"><div><span className="eyebrow">Manual entry</span><h2>Multi-platform opportunity intake</h2></div><span className="status">No live API connection</span></div>
       <p>Paste public project details for analysis. ENIGMA will not connect to an account, submit a proposal, or send a message.</p>

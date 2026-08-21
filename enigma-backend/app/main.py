@@ -39,7 +39,7 @@ async def lifespan(app: FastAPI):
 
     # Import and register routers after database is initialized
     try:
-        from app.routers import auth, products, master_brain, engine, dashboard, events, freelancing, execution, enigma_profile as enigma_profile_router
+        from app.routers import auth, products, master_brain, engine, dashboard, events, freelancing, freelancer_chat, execution, enigma_profile as enigma_profile_router
         from app.engine.registry import register_all as register_workers
         from app.engine.events import event_bus
 
@@ -50,6 +50,7 @@ async def lifespan(app: FastAPI):
         app.include_router(dashboard.router)
         app.include_router(events.router)
         app.include_router(freelancing.router)
+        app.include_router(freelancer_chat.router)
         app.include_router(execution.router)
         app.include_router(enigma_profile_router.router)  # TASK-017
 

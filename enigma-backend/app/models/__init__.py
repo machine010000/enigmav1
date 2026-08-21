@@ -41,6 +41,11 @@ from app.models.oauth import (
 )
 from app.models.controlled_application import ControlledApplicationPackageRecord
 from app.models.submission_intent import ApplicationSubmissionIntent
+from app.models.freelancer_chat import (
+    FreelancerConversation,
+    FreelancerChatMessage,
+    FreelancerProjectArtifact,
+)
 
 __all__ = [
     "User", "Product", "MasterKnowledge", "OnboardingQuestion", "Decision",
@@ -57,4 +62,7 @@ __all__ = [
     "OAuthToken", "OAuthState",
     "ControlledApplicationPackageRecord",
     "ApplicationSubmissionIntent",
+    "FreelancerConversation",
+    "FreelancerChatMessage",
+    "FreelancerProjectArtifact",
 ]
