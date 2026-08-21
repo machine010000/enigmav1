@@ -1,36 +1,3 @@
 {
-  "version": 2,
-  "builds": [
-    {
-      "src": "enigma-backend/api/index.py",
-      "use": "@vercel/python"
-    }
-  ],
-  "routes": [
-    {
-      "src": "/api/(.*)",
-      "dest": "enigma-backend/api/index.py"
-    },
-    {
-      "src": "/(.*)",
-      "dest": "enigma-frontend/$1"
-    }
-  ],
-  "env": {
-    "DATABASE_URL": "@database_url",
-    "NVIDIA_API_KEY": "@nvidia_api_key",
-    "NVIDIA_BASE_URL": "@nvidia_base_url",
-    "AI_MODEL": "@ai_model",
-    "AI_PROVIDER": "@ai_provider",
-    "SECRET_KEY": "@secret_key",
-    "ALGORITHM": "@algorithm",
-    "ACCESS_TOKEN_EXPIRE_MINUTES": "@access_token_expire_minutes",
-    "REDIS_URL": "@redis_url",
-    "ENVIRONMENT": "production",
-    "DEBUG": "false",
-    "CORS_ORIGINS": "@cors_origins",
-    "UPWORK_CLIENT_ID": "@upwork_client_id",
-    "UPWORK_CLIENT_SECRET": "@upwork_client_secret",
-    "UPWORK_REDIRECT_URI": "@upwork_redirect_uri"
-  }
+  "$schema": "https://openapi.vercel.sh/vercel.json"
 }

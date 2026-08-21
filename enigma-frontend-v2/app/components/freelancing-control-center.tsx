@@ -14,7 +14,7 @@ type Capability = { id?: string; capability_id?: string; name: string; status?: 
 type Assessment = { readiness: string; decision: string; missing_capabilities: string[]; reasoning_summary: string; blocking_capability?: string | null };
 type Connection = { state: "not_configured" | "configured" | "connected" | "error"; configured: boolean; sandbox: boolean; last_sync_at?: string | null; last_error_code?: string | null };
 type SyncSummary = { state: "success" | "partial_failure"; created: number; updated: number; existing: number; skipped: number; failed: number; discovered: number };
-type Workspace = { overview: Overview | null; jobs: Job[]; capabilities: Capability[]; connection: Connection | null; error: string | null; loading: boolean };
+type Workspace = { overview: Overview | null; jobs: Job[]; capabilities: Capability[]; connection: Connection | null; connectionError: string | null; error: string | null; loading: boolean };
 type ManualForm = { platform: string; source_url: string; external_project_id: string; title: string; original_description: string; budget_type: string; budget_min: string; budget_max: string; currency: string; required_skills: string; client_name: string; source_language: string; customer_preferred_language: string; proposal_language: string };
 type ManualOpportunity = Job & { manual_entry: true; no_live_api_connection: true; original_text: string; normalized_requirements: Record<string, unknown>; source_language: string; customer_preferred_language: string; proposal_language: string; lifecycle_status: string; proposal_application_id?: string | null; submission?: { outcome_status: string } | null; assessment?: Record<string, unknown> | null };
 const emptyManualForm: ManualForm = { platform: "workana", source_url: "", external_project_id: "", title: "", original_description: "", budget_type: "fixed", budget_min: "", budget_max: "", currency: "USD", required_skills: "", client_name: "", source_language: "en", customer_preferred_language: "en", proposal_language: "en" };
@@ -23,7 +23,7 @@ export function FreelancingControlCenter() {
   const { locale } = useLocale();
   const { token, logout } = useAuth();
   const copy = freelancingCopy[locale.code as keyof typeof freelancingCopy] ?? freelancingCopy.en;
-  const [workspace, setWorkspace] = useState<Workspace>({ overview: null, jobs: [], capabilities: [], connection: null, error: null, loading: true });
+  const [workspace, setWorkspace] = useState<Workspace>({ overview: null, jobs: [], capabilities: [], connection: null, connectionError: null, error: null, loading: true });
   const [detail, setDetail] = useState<JobDetail | null>(null);
   const [assessment, setAssessment] = useState<Assessment | null>(null);
   const [busy, setBusy] = useState<"idle" | "sync" | "assess" | "plan">("idle");
@@ -45,15 +45,18 @@ export function FreelancingControlCenter() {
   const loadWorkspace = useCallback(async () => {
     setWorkspace((current) => ({ ...current, loading: true, error: null }));
     try {
-      const [overview, jobs, capabilities, connection, manual] = await Promise.all([
+      const connectionRequest = apiRequest<Connection>("/api/freelancing/freelancer/connection/status", { headers }, logout)
+        .then((connection) => ({ connection, connectionError: null }))
+        .catch((error: unknown) => ({ connection: null, connectionError: error instanceof Error ? error.message : "Marketplace connection status is unavailable." }));
+      const [overview, jobs, capabilities, manual, connectionResult] = await Promise.all([
         apiRequest<Overview>("/api/freelancing/", { headers }, logout),
         apiRequest<Job[]>("/api/freelancing/jobs", { headers }, logout),
         apiRequest<{ capabilities?: Capability[] }>("/api/enigma/profile", { headers }, logout),
-        apiRequest<Connection>("/api/freelancing/freelancer/connection/status", { headers }, logout),
         apiRequest<ManualOpportunity[]>("/api/freelancing/manual", { headers }, logout),
+        connectionRequest,
       ]);
       setManualJobs(manual);
-      setWorkspace({ overview, jobs, capabilities: capabilities.capabilities ?? [], connection, error: null, loading: false });
+      setWorkspace({ overview, jobs, capabilities: capabilities.capabilities ?? [], connection: connectionResult.connection, connectionError: connectionResult.connectionError, error: null, loading: false });
     } catch (error) {
       setWorkspace((current) => ({ ...current, loading: false, error: error instanceof Error ? error.message : copy.error }));
     }
@@ -169,10 +172,11 @@ export function FreelancingControlCenter() {
       </div>}
     </section>
     <section className="workspace-panel sync-panel">
-      <div className="panel-heading"><div><span className="eyebrow">Freelancer.com</span><h2>Live opportunity discovery</h2></div><span className="status">{workspace.connection?.state ?? "not_configured"}</span></div>
+      <div className="panel-heading"><div><span className="eyebrow">Freelancer.com</span><h2>Live opportunity discovery</h2></div><span className="status">{workspace.connection?.state ?? (workspace.connectionError ? "unavailable" : "not_configured")}</span></div>
       <p>Credentials remain server-side. Discovery runs only after this Admin action.</p>
+      {workspace.connectionError && <p className="form-error" role="alert">Marketplace connection status is unavailable. Chat and manual intake remain available.</p>}
       <div className="sync-controls"><input aria-label="Discovery query" maxLength={200} value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Project keywords" /><input aria-label="Discovery skills" value={skills} onChange={(event) => setSkills(event.target.value)} placeholder="Skills, comma separated" /><button className="action primary" onClick={() => void syncOpportunities()} disabled={!workspace.connection?.configured || busy !== "idle"}>{busy === "sync" ? "Syncing..." : "Sync opportunities"}</button></div>
-      {!workspace.connection?.configured && <p className="empty-state">Freelancer integration is not configured on the server.</p>}
+      {!workspace.connectionError && !workspace.connection?.configured && <p className="empty-state">Freelancer integration is not configured on the server.</p>}
       {workspace.connection?.state === "error" && <p className="form-error">Last sync error: {workspace.connection.last_error_code}</p>}
       {summary && <div className={`sync-summary ${summary.state}`} role="status"><strong>{summary.state === "partial_failure" ? "Sync completed with partial failures" : "Sync completed"}</strong><span>Discovered {summary.discovered}</span><span>Created {summary.created}</span><span>Updated {summary.updated}</span><span>Existing {summary.existing}</span><span>Skipped {summary.skipped}</span><span>Failed {summary.failed}</span></div>}
     </section>
