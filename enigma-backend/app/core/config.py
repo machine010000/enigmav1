@@ -5,8 +5,60 @@ Environment-based configuration management with secure secrets handling.
 """
 import os
 from typing import Optional, List
+from urllib.parse import urlsplit
 from pydantic_settings import BaseSettings
 from pydantic import field_validator
+
+CORS_ALLOW_METHODS = ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"]
+CORS_ALLOW_HEADERS = ["Accept", "Authorization", "Content-Type"]
+
+
+def parse_cors_origins(value: str) -> List[str]:
+    """Parse and validate a comma-separated list of exact HTTP origins."""
+    if not isinstance(value, str):
+        raise ValueError("CORS_ORIGINS must be a comma-separated string")
+
+    origins: List[str] = []
+    for entry in value.split(","):
+        origin = entry.strip()
+        if not origin:
+            continue
+        if origin == "*":
+            raise ValueError(
+                "CORS_ORIGINS cannot contain '*' while credentialed CORS is enabled"
+            )
+        if any(character.isspace() for character in origin) or "\\" in origin:
+            raise ValueError(f"Invalid CORS origin: {origin!r}")
+
+        parsed = urlsplit(origin)
+        try:
+            parsed_port = parsed.port
+        except ValueError as exc:
+            raise ValueError(f"Invalid CORS origin: {origin!r}") from exc
+
+        if (
+            parsed.scheme.lower() not in {"http", "https"}
+            or not parsed.hostname
+            or parsed.username is not None
+            or parsed.password is not None
+            or parsed.path not in {"", "/"}
+            or parsed.query
+            or parsed.fragment
+        ):
+            raise ValueError(
+                f"Invalid CORS origin {origin!r}; expected scheme://host[:port]"
+            )
+
+        host = parsed.hostname.lower()
+        if ":" in host and not host.startswith("["):
+            host = f"[{host}]"
+        normalized = f"{parsed.scheme.lower()}://{host}"
+        if parsed_port is not None:
+            normalized += f":{parsed_port}"
+        if normalized not in origins:
+            origins.append(normalized)
+
+    return origins
 
 
 class Settings(BaseSettings):
@@ -110,11 +162,11 @@ class Settings(BaseSettings):
     
     @field_validator("CORS_ORIGINS", mode="before")
     @classmethod
-    def parse_cors_origins(cls, v: str) -> str:
-        """Parse CORS origins from comma-separated string."""
-        # Keep as string, parse in property
-        return v if isinstance(v, str) else ""
-    
+    def validate_cors_origins(cls, v: str) -> str:
+        """Validate CORS configuration while retaining its environment form."""
+        parse_cors_origins(v)
+        return v
+
     @field_validator("SECRET_KEY")
     @classmethod
     def validate_secret_key(cls, v: str) -> str:
@@ -126,7 +178,7 @@ class Settings(BaseSettings):
     @property
     def cors_origins_list(self) -> List[str]:
         """Get CORS origins as list."""
-        return self.parse_cors_origins(self.CORS_ORIGINS)
+        return parse_cors_origins(self.CORS_ORIGINS)
     
     class Config:
         env_file = ".env"

@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 
 from app.database import init_db
-from app.core.config import settings
+from app.core.config import CORS_ALLOW_HEADERS, CORS_ALLOW_METHODS, settings
 from app.core.health import perform_startup_health_check, get_health_status
 
 @asynccontextmanager
@@ -81,10 +81,10 @@ app = FastAPI(
 # CORS configuration from environment
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.cors_origins_list if settings.cors_origins_list else ["*"],
+    allow_origins=settings.cors_origins_list,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=CORS_ALLOW_METHODS,
+    allow_headers=CORS_ALLOW_HEADERS,
 )
 
 # Request logging middleware for diagnostics
