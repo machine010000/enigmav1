@@ -4,9 +4,10 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "next build --webpack",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "test:chat": "node --test tests/freelancer-chat-model.test.mjs"
   },
   "dependencies": {
     "next": "16.3.1",
