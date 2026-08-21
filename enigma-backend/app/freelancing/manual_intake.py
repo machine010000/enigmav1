@@ -4,12 +4,9 @@ No method in this module contacts a marketplace or performs submission.
 """
 from __future__ import annotations
 
-import hashlib
-import json
 import uuid
 from datetime import datetime
 from typing import Any, Optional
-from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
@@ -18,6 +15,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.marketplace import MarketplaceJob, ManualOpportunitySubmission
 from app.models.controlled_application import ControlledApplicationPackageRecord
 from app.models.submission_intent import ApplicationSubmissionIntent
+from app.freelancing.manual_dedupe import (
+    canonical_dedupe_key,
+    fallback_fingerprint,
+    normalize_external_id,
+    normalize_source_url,
+)
 
 PROFILE_ID = "enigma_profile"
 EDITABLE_STATES = {"draft", "ready_for_analysis", "analyzed", "proposal_prepared"}
@@ -41,40 +44,6 @@ class ManualOpportunityStateError(Exception):
     pass
 
 
-def normalize_source_url(value: Optional[str]) -> Optional[str]:
-    if not value:
-        return None
-    parts = urlsplit(value.strip())
-    if parts.scheme.lower() not in {"http", "https"} or not parts.netloc:
-        raise ValueError("source_url must be an absolute HTTP(S) URL")
-    host = parts.hostname.lower() if parts.hostname else ""
-    port = f":{parts.port}" if parts.port and not (parts.scheme.lower() == "http" and parts.port == 80) and not (parts.scheme.lower() == "https" and parts.port == 443) else ""
-    path = parts.path.rstrip("/") or "/"
-    query = urlencode(sorted((k, v) for k, v in parse_qsl(parts.query, keep_blank_values=True) if not k.lower().startswith("utm_")))
-    return urlunsplit((parts.scheme.lower(), host + port, path, query, ""))
-
-
-def fallback_fingerprint(platform: str, title: str, client_info: dict[str, Any]) -> str:
-    stable = {
-        "platform": platform.strip().lower(),
-        "title": " ".join(title.lower().split()),
-        "client": client_info.get("name") or client_info.get("username") or client_info.get("id") or "",
-    }
-    return hashlib.sha256(json.dumps(stable, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
-
-
-def normalize_external_id(value: Optional[str]) -> Optional[str]:
-    normalized = (value or "").strip().lower()
-    return normalized or None
-
-
-def canonical_dedupe_key(platform: str, external_project_id: Optional[str], source_url: Optional[str],
-                         title: str, client_info: dict[str, Any]) -> str:
-    normalized_url = normalize_source_url(source_url)
-    identity = normalized_url or normalize_external_id(external_project_id) or fallback_fingerprint(platform, title, client_info)
-    return hashlib.md5(f"{platform.strip().lower()}|{identity}".encode(), usedforsecurity=False).hexdigest()
-
-
 class ManualOpportunityService:
     @staticmethod
     def transition(job: MarketplaceJob, target: str) -> None:
@@ -85,7 +54,11 @@ class ManualOpportunityService:
         self, db: AsyncSession, *, platform: str, external_project_id: Optional[str],
         source_url: Optional[str], title: str, client_info: dict[str, Any], exclude_job_id: Optional[str] = None,
     ) -> Optional[MarketplaceJob]:
-        conditions = []
+        conditions = [
+            MarketplaceJob.manual_dedupe_key == canonical_dedupe_key(
+                platform, external_project_id, source_url, title, client_info
+            )
+        ]
         if external_project_id:
             conditions.append(func.lower(func.trim(MarketplaceJob.platform_job_id)) == normalize_external_id(external_project_id))
         normalized_url = normalize_source_url(source_url)

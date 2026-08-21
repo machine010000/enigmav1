@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
+import importlib.util
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
@@ -128,7 +129,7 @@ async def test_duplicate_returns_existing_reference_and_never_writes():
 @pytest.mark.asyncio
 async def test_database_uniqueness_race_returns_canonical_existing_job():
     existing = SimpleNamespace(job_id="winner")
-    db = FakeDB([None, None, None, existing], flush_error=IntegrityError("insert", {}, Exception("unique")))
+    db = FakeDB([None, None, None, None, existing], flush_error=IntegrityError("insert", {}, Exception("unique")))
     with pytest.raises(DuplicateOpportunityError) as error:
         await ManualOpportunityService().create(db, actor_id="admin", data=payload())
     assert error.value.existing_job_id == "winner"
@@ -139,7 +140,7 @@ async def test_database_uniqueness_race_returns_canonical_existing_job():
 async def test_update_uniqueness_race_uses_same_duplicate_contract_as_create():
     job = await ManualOpportunityService().create(FakeDB(), actor_id="admin", data=payload())
     existing = SimpleNamespace(job_id="canonical-job")
-    db = FakeDB([None, None, None, existing], flush_error=IntegrityError("update", {}, Exception("unique")))
+    db = FakeDB([None, None, None, None, existing], flush_error=IntegrityError("update", {}, Exception("unique")))
     with pytest.raises(DuplicateOpportunityError) as error:
         await ManualOpportunityService().update(db, job=job, data={"source_url": "https://example.com/collision"})
     assert error.value.existing_job_id == "canonical-job"
@@ -152,6 +153,143 @@ def test_migration_012_uses_runtime_canonical_identity_order():
     assert "lower(trim(platform)) || '|'" in source
     assert "COALESCE(NULLIF(url, ''), NULLIF(lower(trim(platform_job_id)), ''), identity_fingerprint)" in source
     assert "row_number()" in source and "duplicate_rank > 1" in source
+
+
+def _migration_013():
+    path = Path(__file__).parents[1] / "alembic/versions/013_runtime_url_canonical_dedupe.py"
+    spec = importlib.util.spec_from_file_location("migration_013_runtime_url_canonical_dedupe", path)
+    module = importlib.util.module_from_spec(spec)
+    assert spec.loader is not None
+    spec.loader.exec_module(module)
+    return module
+
+
+def historical_row(row_id, job_id, url, **overrides):
+    row = {
+        "id": row_id, "profile_id": "enigma_profile", "job_id": job_id,
+        "platform": "UPWORK", "platform_job_id": "different-external-id",
+        "title": "Historical job", "client_info": {}, "url": url,
+        "identity_fingerprint": "fallback", "manual_dedupe_key": "old-key",
+        "metadata": {"existing": True}, "ingestion_source": "manual",
+    }
+    row.update(overrides)
+    return row
+
+
+def test_migration_013_uses_the_runtime_normalizer_for_historical_rows():
+    migration = _migration_013()
+    raw_url = "  HTTPS://Example.COM:443/job/1/?utm_source=x&b=2&a=1#fragment  "
+    planned = migration._upgrade_plan([historical_row(1, "old", raw_url)])
+    expected = canonical_dedupe_key("upwork", "different-external-id", raw_url, "Historical job", {})
+    assert planned[0]["url"] == "https://example.com/job/1?a=1&b=2"
+    assert planned[0]["manual_dedupe_key"] == expected
+    assert planned[0]["metadata"]["task_066f_pre_013_source_url"] == raw_url
+
+
+def test_migration_013_preserves_and_audits_historical_url_collisions():
+    migration = _migration_013()
+    rows = [
+        historical_row(20, "later", "https://example.com/job/1/?b=2&a=1#x"),
+        historical_row(10, "winner", "HTTPS://EXAMPLE.COM:443/job/1?a=1&b=2&utm_medium=y"),
+    ]
+    planned = migration._upgrade_plan(rows)
+    assert [item["id"] for item in planned] == [10, 20]
+    assert planned[0]["manual_dedupe_key"] == canonical_dedupe_key(
+        "upwork", "ignored", rows[1]["url"], "Historical job", {}
+    )
+    assert planned[1]["manual_dedupe_key"] is None
+    assert planned[1]["metadata"]["task_066f_collision_canonical_job_id"] == "winner"
+    assert planned[0]["metadata"]["existing"] is True
+    assert planned[1]["metadata"]["existing"] is True
+
+
+def test_migration_013_downgrade_restores_audited_url_and_v012_key():
+    migration = _migration_013()
+    original = "HTTPS://Example.COM:443/job/1/?utm_source=x"
+    upgraded = migration._upgrade_plan([historical_row(1, "old", original)])
+    downgraded = migration._downgrade_plan([{**historical_row(1, "old", upgraded[0]["url"]), **upgraded[0]}])
+    assert downgraded[0]["url"] == original
+    assert "task_066f_pre_013_source_url" not in downgraded[0]["metadata"]
+    assert downgraded[0]["manual_dedupe_key"] == migration._v012_key(
+        historical_row(1, "old", original), original
+    )
+
+
+def test_migration_013_upgrade_downgrade_upgrade_on_isolated_database():
+    from alembic.migration import MigrationContext
+    from alembic.operations import Operations
+    import sqlalchemy as sa
+
+    migration = _migration_013()
+    engine = sa.create_engine("sqlite://")
+    metadata = sa.MetaData()
+    table = sa.Table(
+        "marketplace_jobs", metadata,
+        sa.Column("id", sa.Integer, primary_key=True),
+        sa.Column("profile_id", sa.String, nullable=False),
+        sa.Column("job_id", sa.String, nullable=False),
+        sa.Column("platform", sa.String, nullable=False),
+        sa.Column("platform_job_id", sa.String),
+        sa.Column("title", sa.String),
+        sa.Column("client_info", sa.JSON),
+        sa.Column("url", sa.String),
+        sa.Column("identity_fingerprint", sa.String),
+        sa.Column("manual_dedupe_key", sa.String),
+        sa.Column("metadata", sa.JSON),
+        sa.Column("ingestion_source", sa.String),
+    )
+    sa.Index(
+        "uq_marketplace_jobs_manual_dedupe",
+        table.c.profile_id,
+        table.c.manual_dedupe_key,
+        unique=True,
+    )
+    metadata.create_all(engine)
+    raw_urls = [
+        "HTTPS://EXAMPLE.COM:443/job/1/?b=2&a=1&utm_source=x#fragment",
+        "https://example.com/job/1?a=1&b=2",
+    ]
+    with engine.begin() as connection:
+        connection.execute(table.insert(), [
+            {**historical_row(1, "winner", raw_urls[0]), "manual_dedupe_key": "old-key-1"},
+            {**historical_row(2, "duplicate", raw_urls[1]), "manual_dedupe_key": "old-key-2"},
+        ])
+        context = MigrationContext.configure(connection)
+        with Operations.context(context):
+            migration.upgrade()
+        upgraded = connection.execute(sa.select(table).order_by(table.c.id)).mappings().all()
+        assert upgraded[0]["url"] == upgraded[1]["url"] == "https://example.com/job/1?a=1&b=2"
+        assert upgraded[0]["manual_dedupe_key"] is not None
+        assert upgraded[1]["manual_dedupe_key"] is None
+        assert upgraded[1]["metadata"]["task_066f_collision_canonical_job_id"] == "winner"
+
+        with Operations.context(context):
+            migration.downgrade()
+        downgraded = connection.execute(sa.select(table).order_by(table.c.id)).mappings().all()
+        assert [row["url"] for row in downgraded] == raw_urls
+
+        with Operations.context(context):
+            migration.upgrade()
+        repeated = connection.execute(sa.select(table).order_by(table.c.id)).mappings().all()
+        assert repeated[0]["manual_dedupe_key"] is not None
+        assert repeated[1]["manual_dedupe_key"] is None
+
+
+@pytest.mark.asyncio
+async def test_update_to_runtime_equivalent_existing_url_uses_duplicate_contract():
+    job = await ManualOpportunityService().create(
+        FakeDB(), actor_id="admin", data=payload(source_url="https://example.com/job/other")
+    )
+    existing = SimpleNamespace(job_id="historical-canonical")
+    db = FakeDB([existing])
+    with pytest.raises(DuplicateOpportunityError) as error:
+        await ManualOpportunityService().update(
+            db,
+            job=job,
+            data={"source_url": " HTTPS://EXAMPLE.COM:443/job/1/?utm_source=x&b=2&a=1#fragment "},
+        )
+    assert error.value.existing_job_id == "historical-canonical"
+    db.flush.assert_not_awaited()
 
 
 @pytest.mark.asyncio
